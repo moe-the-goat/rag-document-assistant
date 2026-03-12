@@ -1,5 +1,7 @@
 # AI Document Assistant -- Retrieval-Augmented Generation (RAG)
 
+![Streamlit UI](streamlit%20UI.png)
+
 A question-answering system that lets users upload documents and ask
 natural-language questions about their content.  Instead of relying
 solely on the language model's training data, the system retrieves
