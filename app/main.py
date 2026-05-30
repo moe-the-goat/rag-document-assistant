@@ -99,6 +99,7 @@ async def upload_document(file: UploadFile = File(...)):
             file_hash=file_hash,
             file_type=ext,
             file_size=file_size,
+            file_path=file_path,
             chunk_count=len(chunks),
         )
 
@@ -170,13 +171,18 @@ def list_documents():
 
 @app.delete("/documents/{doc_id}", tags=["Documents"])
 def delete_document(doc_id: str):
-    # delete a single document: remove its chunks from the vector store
-    # and its entry from the registry
+    # delete a single document: remove its chunks from the vector store,
+    # delete the uploaded file from disk, and remove from the registry
     doc = registry.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found.")
 
     removed = vector_store.delete_by_doc_id(doc_id)
+
+    # delete the physical file from the uploads folder
+    if doc.get("file_path") and os.path.exists(doc["file_path"]):
+        os.remove(doc["file_path"])
+
     registry.delete_document(doc_id)
 
     return {

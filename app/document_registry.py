@@ -37,6 +37,7 @@ def init_db():
             file_hash      TEXT NOT NULL,
             file_type      TEXT NOT NULL,
             file_size      INTEGER NOT NULL,
+            file_path      TEXT NOT NULL DEFAULT '',
             chunk_count    INTEGER NOT NULL DEFAULT 0,
             uploaded_at    TEXT NOT NULL
         )
@@ -44,6 +45,11 @@ def init_db():
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_file_hash ON documents(file_hash)
     """)
+    # migration: add file_path column if upgrading from an older schema
+    try:
+        conn.execute("ALTER TABLE documents ADD COLUMN file_path TEXT NOT NULL DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # column already exists
     conn.commit()
     conn.close()
 
@@ -74,6 +80,7 @@ def register_document(
     file_hash: str,
     file_type: str,
     file_size: int,
+    file_path: str,
     chunk_count: int,
 ) -> str:
     """Register a new document and return its doc_id."""
@@ -81,11 +88,11 @@ def register_document(
     conn = _get_connection()
     conn.execute(
         """
-        INSERT INTO documents (doc_id, original_name, file_hash, file_type, file_size, chunk_count, uploaded_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO documents (doc_id, original_name, file_hash, file_type, file_size, file_path, chunk_count, uploaded_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (doc_id, original_name, file_hash, file_type, file_size, chunk_count,
-         datetime.now(timezone.utc).isoformat()),
+        (doc_id, original_name, file_hash, file_type, file_size, file_path,
+         chunk_count, datetime.now(timezone.utc).isoformat()),
     )
     conn.commit()
     conn.close()
