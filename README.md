@@ -105,21 +105,23 @@ No external API keys or paid services are required.
 |-- app/
 |   |-- __init__.py          Package metadata
 |   |-- config.py            Centralised settings (env-var overridable)
+|   |-- conversation.py      SQLite conversation history with message storage
 |   |-- document_registry.py SQLite document registry with duplicate detection
 |   |-- ingestion.py         Document parsing and text chunking
-|   |-- vector_store.py      FAISS index wrapper with per-document tracking
+|   |-- vector_store.py      FAISS + BM25 hybrid search with per-document tracking
 |   |-- retrieval.py         Semantic retrieval logic with document filtering
 |   |-- llm.py               Ollama LLM client and prompt template
 |   |-- models.py            Pydantic request / response schemas
 |   +-- main.py              FastAPI application and route handlers
 |
 |-- ui/
-|   +-- app.py               Streamlit chat frontend with document library
+|   +-- app.py               Streamlit chat frontend with conversations & doc library
 |
 |-- data/
 |   |-- uploads/             Uploaded files (runtime, git-ignored)
 |   |-- vector_db/           FAISS index files  (runtime, git-ignored)
-|   +-- registry.db          Document registry  (runtime, git-ignored)
+|   |-- registry.db          Document registry  (runtime, git-ignored)
+|   +-- conversations.db     Conversation history (runtime, git-ignored)
 |
 |-- docs/
 |   +-- DOCUMENTATION.md     Detailed technical documentation
@@ -177,16 +179,21 @@ docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
 
 ## API Reference
 
-| Method | Endpoint           | Description                                    |
-|--------|--------------------|------------------------------------------------|
-| GET    | /                  | Health check                                   |
-| POST   | /upload            | Upload and ingest a document (PDF, TXT, DOCX, MD, HTML) — duplicates are automatically rejected |
-| POST   | /ask               | Ask a question (optionally filtered to specific documents) |
-| GET    | /models            | Fetch available Ollama models dynamically      |
-| GET    | /documents         | List all uploaded documents with metadata       |
-| DELETE | /documents/{doc_id}| Delete a specific document and its chunks       |
-| GET    | /status            | Return the number of chunks in the store       |
-| POST   | /clear             | Delete all documents, embeddings, and registry |
+| Method | Endpoint                    | Description                                    |
+|--------|-----------------------------|-------------------------------------------------|
+| GET    | /                           | Health check                                   |
+| POST   | /upload                     | Upload and ingest a document — duplicates rejected |
+| POST   | /ask                        | Ask a question (auto-saves to conversation)    |
+| GET    | /models                     | Fetch available Ollama models                  |
+| GET    | /documents                  | List all uploaded documents                    |
+| DELETE | /documents/{doc_id}         | Delete a specific document and its chunks      |
+| GET    | /conversations              | List all conversations                         |
+| POST   | /conversations              | Create a new empty conversation                |
+| GET    | /conversations/{id}         | Get full conversation with messages            |
+| PATCH  | /conversations/{id}         | Rename a conversation                          |
+| DELETE | /conversations/{id}         | Delete a conversation and its messages         |
+| GET    | /status                     | Return the number of chunks in the store       |
+| POST   | /clear                      | Delete all data (documents, conversations, etc)|
 
 ### Upload a document
 

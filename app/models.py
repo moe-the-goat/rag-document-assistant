@@ -11,12 +11,14 @@ class QuestionRequest(BaseModel):
     question: str
     model: str = "qwen3:4b"
     doc_ids: list[str] | None = None  # optional: filter to specific documents
+    conversation_id: str | None = None  # optional: save to a conversation
 
 
 class AnswerResponse(BaseModel):
     # what we send back: the answer + the chunks we used to make it
     answer: str
     context_chunks: list[str]
+    conversation_id: str | None = None  # the conversation this was saved to
 
 
 class UploadResponse(BaseModel):
@@ -41,3 +43,37 @@ class DocumentInfo(BaseModel):
     file_size: int
     chunk_count: int
     uploaded_at: str
+
+
+class ConversationInfo(BaseModel):
+    # summary of a conversation for the list view
+    conversation_id: str
+    title: str
+    created_at: str
+    updated_at: str
+    message_count: int = 0
+
+
+class MessageInfo(BaseModel):
+    # a single message in a conversation
+    message_id: str
+    conversation_id: str
+    role: str
+    content: str
+    context_chunks: list[str] = []
+    model_used: str = ""
+    timestamp: str
+
+
+class ConversationDetail(BaseModel):
+    # full conversation with all its messages
+    conversation_id: str
+    title: str
+    created_at: str
+    updated_at: str
+    messages: list[MessageInfo]
+
+
+class RenameRequest(BaseModel):
+    # request to rename a conversation
+    title: str
