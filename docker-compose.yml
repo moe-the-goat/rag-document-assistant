@@ -55,6 +55,8 @@ services:
       - API_URL=http://backend:8000
       # Must match the backend's API_KEY for authentication
       - API_KEY=${API_KEY:-}
+    volumes:
+      - ./ui:/usr/share/nginx/html
     depends_on:
       backend:
         condition: service_healthy
