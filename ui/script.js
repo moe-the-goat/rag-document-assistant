@@ -68,23 +68,43 @@ fileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    uploadStatus.style.color = 'var(--text-muted)';
     uploadStatus.textContent = 'Uploading...';
     const formData = new FormData();
     formData.append('file', file);
 
     try {
         const res = await fetch('/upload', { method: 'POST', body: formData });
-        const data = await res.json();
+
+        let data;
+        try {
+            data = await res.json();
+        } catch (e) {
+            data = { detail: "Server returned invalid response." };
+        }
+
         if (res.ok) {
+            uploadStatus.style.color = 'var(--accent-blue)';
             uploadStatus.textContent = `Success: ${data.chunks_added} chunks added.`;
             loadDocuments();
+            setTimeout(() => uploadStatus.textContent = '', 5000);
         } else {
-            uploadStatus.textContent = `Error: ${data.detail}`;
+            uploadStatus.style.color = '#ff5546'; // Red for error
+            if (res.status === 409) {
+                uploadStatus.textContent = `⚠️ Duplicate: ${data.detail || 'File already exists.'}`;
+            } else {
+                uploadStatus.textContent = `❌ Error: ${data.detail || 'Upload failed.'}`;
+            }
+            setTimeout(() => uploadStatus.textContent = '', 8000);
         }
     } catch (err) {
-        uploadStatus.textContent = 'Upload failed.';
+        uploadStatus.style.color = '#ff5546';
+        uploadStatus.textContent = '❌ Upload failed. Could not reach server.';
+        setTimeout(() => uploadStatus.textContent = '', 8000);
     }
-    setTimeout(() => uploadStatus.textContent = '', 3000);
+
+    // Clear the input so the same file can be selected again if needed
+    fileInput.value = '';
 });
 
 async function loadConversations() {

@@ -156,6 +156,13 @@ body {
     cursor: pointer;
 }
 
+.status-text {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 12px;
+    line-height: 1.4;
+}
+
 /* Chat Area */
 .chat-area {
     flex-grow: 1;
