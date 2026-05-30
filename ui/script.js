@@ -7,7 +7,6 @@ const toggleSidebarBtn = document.getElementById('toggle-sidebar');
 const openSidebarBtn = document.getElementById('open-sidebar');
 const newChatBtn = document.getElementById('new-chat-btn');
 const fileInput = document.getElementById('file-input');
-const uploadStatus = document.getElementById('upload-status');
 const conversationsList = document.getElementById('conversations-list');
 const documentLibrary = document.getElementById('document-library');
 const modelSelect = document.getElementById('model-select');
@@ -63,13 +62,28 @@ newChatBtn.addEventListener('click', () => {
     loadConversations();
 });
 
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
 // File Upload
 fileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    uploadStatus.style.color = 'var(--text-muted)';
-    uploadStatus.textContent = 'Uploading...';
+    showToast('Uploading...', 'info');
     const formData = new FormData();
     formData.append('file', file);
 
@@ -84,23 +98,17 @@ fileInput.addEventListener('change', async (e) => {
         }
 
         if (res.ok) {
-            uploadStatus.style.color = 'var(--accent-blue)';
-            uploadStatus.textContent = `Success: ${data.chunks_added} chunks added.`;
+            showToast(`Success: ${data.chunks_added} chunks added.`, 'success');
             loadDocuments();
-            setTimeout(() => uploadStatus.textContent = '', 5000);
         } else {
-            uploadStatus.style.color = '#ff5546'; // Red for error
             if (res.status === 409) {
-                uploadStatus.textContent = `⚠️ Duplicate: ${data.detail || 'File already exists.'}`;
+                showToast(`⚠️ Duplicate: ${data.detail || 'File already exists.'}`, 'error');
             } else {
-                uploadStatus.textContent = `❌ Error: ${data.detail || 'Upload failed.'}`;
+                showToast(`❌ Error: ${data.detail || 'Upload failed.'}`, 'error');
             }
-            setTimeout(() => uploadStatus.textContent = '', 8000);
         }
     } catch (err) {
-        uploadStatus.style.color = '#ff5546';
-        uploadStatus.textContent = '❌ Upload failed. Could not reach server.';
-        setTimeout(() => uploadStatus.textContent = '', 8000);
+        showToast('❌ Upload failed. Could not reach server.', 'error');
     }
 
     // Clear the input so the same file can be selected again if needed
