@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   ollama:
     deploy:
@@ -9,3 +7,4 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    entrypoint: [ "sh", "-c", "ollama serve & sleep 5 && ollama pull qwen2.5 && ollama pull qwen3:4b && ollama pull nomic-embed-text && wait" ]

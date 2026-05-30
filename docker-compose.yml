@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   ollama:
     image: ollama/ollama:latest
@@ -10,7 +8,7 @@ services:
       - ollama_data:/root/.ollama
     # This entrypoint starts the server in the background, waits a few seconds, 
     # pulls the necessary models, and then waits for the server process to keep the container alive.
-    entrypoint: [ "sh", "-c", "ollama serve & sleep 5 && ollama pull qwen3:4b && ollama pull nomic-embed-text && wait" ]
+    entrypoint: [ "sh", "-c", "ollama serve & sleep 5 && ollama pull qwen2.5 && ollama pull qwen3:4b && ollama pull nomic-embed-text && wait" ]
 
   backend:
     build:
