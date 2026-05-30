@@ -58,6 +58,7 @@ body {
 .sidebar-content {
     flex-grow: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 0 20px;
 }
 
@@ -161,6 +162,7 @@ body {
     color: var(--text-muted);
     margin-top: 12px;
     line-height: 1.4;
+    word-break: break-word;
 }
 
 /* Chat Area */
@@ -315,6 +317,7 @@ body {
     outline: none;
     max-height: 200px;
     padding-top: 8px;
+    overflow-y: hidden;
 }
 
 .input-container textarea::placeholder {
