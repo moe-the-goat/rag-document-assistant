@@ -110,9 +110,14 @@ body {
 .icon-btn {
     background: transparent;
     color: var(--text-muted);
-    padding: 8px;
-    width: auto;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 50%;
+    padding: 0;
+    transition: background-color 0.2s;
 }
 .icon-btn:hover {
     background-color: var(--bg-surface);
@@ -208,7 +213,7 @@ body {
     display: flex;
     flex-direction: column;
     position: relative;
-    background: radial-gradient(circle at 50% 50%, #171f2e 0%, var(--bg-chat) 60%);
+    background: radial-gradient(circle at 50% 50%, #171f2e 0%, var(--bg-dark) 70%);
 }
 
 .chat-header {
@@ -341,16 +346,16 @@ body {
 }
 
 .input-container {
-    background-color: var(--bg-surface);
-    border-radius: 24px;
-    padding: 8px 16px;
+    background-color: var(--bg-chat);
+    border-radius: 32px;
+    padding: 12px 16px;
     display: flex;
     align-items: flex-end;
-    gap: 12px;
+    gap: 8px;
 }
 
 .input-container textarea {
-    flex-grow: 1;
+    flex: 1 1 auto;
     background: transparent;
     border: none;
     color: var(--text-main);
@@ -360,8 +365,9 @@ body {
     outline: none;
     max-height: 200px;
     padding: 8px 0;
-    line-height: 1.4;
+    line-height: 24px;
     overflow-y: hidden;
+    margin: 0;
 }
 
 .input-container textarea::placeholder {
@@ -370,8 +376,7 @@ body {
 
 .send-btn {
     color: var(--text-main);
-    padding: 8px;
-    margin-bottom: 2px;
+    margin-bottom: 0;
 }
 .send-btn:disabled {
     color: var(--text-subtle);
@@ -393,18 +398,19 @@ body {
 .pill-select {
     appearance: none;
     background-color: transparent;
-    color: var(--text-main);
+    color: var(--text-muted);
     border: none;
     border-radius: 8px;
-    padding: 6px 24px 6px 12px;
+    height: 40px;
+    padding: 0 24px 0 12px;
     font-family: inherit;
     font-size: 0.85rem;
     cursor: pointer;
     background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%20%22%20fill%3D%22none%22%20stroke%3D%22%23c4c7c5%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E");
     background-repeat: no-repeat;
     background-position: right 4px center;
-    transition: background-color 0.2s;
-    margin-bottom: 2px;
+    transition: background-color 0.2s, color 0.2s;
+    margin-bottom: 0;
 }
 
 .pill-select:hover {
