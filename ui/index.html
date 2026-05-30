@@ -70,11 +70,20 @@
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </button>
                     <textarea id="chat-input" placeholder="Ask Nexus AI..." rows="1"></textarea>
-                    <div class="model-selector-pill">
-                        <select id="model-select" class="pill-select">
-                            <option value="qwen2.5:latest">qwen2.5:latest</option>
-                            <option value="qwen3:4b">qwen3:4b</option>
-                        </select>
+                    <div class="model-selector-container" id="model-selector-container">
+                        <button id="model-select-btn" class="pill-select">
+                            <span id="selected-model-text">qwen2.5:latest</span>
+                        </button>
+                        <div id="model-dropdown" class="custom-dropdown">
+                            <div class="dropdown-item selected" data-value="qwen2.5:latest">
+                                <div class="dropdown-title">qwen2.5:latest</div>
+                                <div class="dropdown-desc">All-around help and coding</div>
+                            </div>
+                            <div class="dropdown-item" data-value="qwen3:4b">
+                                <div class="dropdown-title">qwen3:4b</div>
+                                <div class="dropdown-desc">Fastest answers</div>
+                            </div>
+                        </div>
                     </div>
                     <button id="send-btn" class="btn icon-btn send-btn" disabled>
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>

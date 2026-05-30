@@ -9,7 +9,10 @@ const newChatBtn = document.getElementById('new-chat-btn');
 const fileInput = document.getElementById('file-input');
 const conversationsList = document.getElementById('conversations-list');
 const documentLibrary = document.getElementById('document-library');
-const modelSelect = document.getElementById('model-select');
+const modelSelectBtn = document.getElementById('model-select-btn');
+const selectedModelText = document.getElementById('selected-model-text');
+const modelDropdown = document.getElementById('model-dropdown');
+let currentModel = 'qwen2.5:latest';
 const chatInput = document.getElementById('chat-input');
 const sendBtn = document.getElementById('send-btn');
 const messagesContainer = document.getElementById('messages-container');
@@ -25,6 +28,30 @@ marked.setOptions({
         return hljs.highlightAuto(code).value;
     }
 });
+
+// Custom Dropdown Logic
+if (modelSelectBtn) {
+    modelSelectBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        modelDropdown.classList.toggle('show');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (modelDropdown && !modelDropdown.contains(e.target) && !modelSelectBtn.contains(e.target)) {
+            modelDropdown.classList.remove('show');
+        }
+    });
+
+    document.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', () => {
+            document.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('selected'));
+            item.classList.add('selected');
+            currentModel = item.getAttribute('data-value');
+            selectedModelText.textContent = item.querySelector('.dropdown-title').textContent;
+            modelDropdown.classList.remove('show');
+        });
+    });
+}
 
 // Sidebar Toggle
 toggleSidebarBtn.addEventListener('click', () => {
@@ -263,7 +290,7 @@ async function sendMessage() {
 
     const payload = {
         question: text,
-        model: modelSelect.value
+        model: currentModel
     };
     if (currentConversationId) payload.conversation_id = currentConversationId;
 
