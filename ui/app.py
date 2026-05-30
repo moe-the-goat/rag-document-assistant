@@ -25,6 +25,25 @@ st.markdown(
 # -- sidebar: file upload, store status, clear button --
 
 with st.sidebar:
+    st.header("AI Model")
+    available_models = ["qwen3:4b"]
+    try:
+        m_resp = requests.get(f"{API_URL}/models", timeout=5)
+        if m_resp.status_code == 200:
+            fetched = m_resp.json()
+            if fetched:
+                available_models = fetched
+    except requests.ConnectionError:
+        pass
+
+    selected_model = st.selectbox(
+        "Select Model",
+        options=available_models,
+        index=0,
+        help="Select the AI model you want to use. You must 'ollama pull' the model first."
+    )
+    st.divider()
+
     st.header("Document Upload")
 
     uploaded_file = st.file_uploader(
@@ -115,7 +134,7 @@ if question := st.chat_input("Ask something about your documents..."):
             try:
                 resp = requests.post(
                     f"{API_URL}/ask",
-                    json={"question": question},
+                    json={"question": question, "model": selected_model},
                     timeout=600,
                 )
                 if resp.status_code == 200:

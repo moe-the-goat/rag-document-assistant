@@ -6,11 +6,12 @@
 import os
 import shutil
 import uuid
+import requests
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import UPLOADS_DIR
+from app.config import UPLOADS_DIR, OLLAMA_BASE_URL
 from app.models import QuestionRequest, AnswerResponse, UploadResponse, StatusResponse
 from app.ingestion import ingest_document
 from app.vector_store import VectorStore
@@ -94,9 +95,22 @@ def ask_question(req: QuestionRequest):
     context = retrieve_context(vector_store, question)
     context_chunks = context.split("\n\n---\n\n") if context else []
 
-    answer = generate_answer(context, question)
+    answer = generate_answer(context, question, req.model)
 
     return AnswerResponse(answer=answer, context_chunks=context_chunks)
+
+
+@app.get("/models", response_model=list[str], tags=["Models"])
+def get_available_models():
+    # fetch available models dynamically from Ollama API
+    try:
+        resp = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            return [m["name"] for m in data.get("models", [])]
+    except Exception:
+        pass
+    return ["qwen3:4b"] # fallback
 
 
 @app.get("/status", response_model=StatusResponse, tags=["Health"])

@@ -173,6 +173,7 @@ docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
 | GET    | /         | Health check                                   |
 | POST   | /upload   | Upload and ingest a document (PDF, TXT, DOCX, MD, HTML)      |
 | POST   | /ask      | Ask a question about the ingested documents    |
+| GET    | /models   | Fetch available Ollama models dynamically      |
 | GET    | /status   | Return the number of chunks in the store       |
 | POST   | /clear    | Delete all documents and embeddings            |
 
@@ -187,7 +188,7 @@ curl -X POST http://localhost:8000/upload -F "file=@document.pdf"
 ```bash
 curl -X POST http://localhost:8000/ask \
      -H "Content-Type: application/json" \
-     -d "{\"question\": \"What is the main topic of the document?\"}"
+     -d "{\"question\": \"What is the main topic of the document?\", \"model\": \"qwen3:4b\"}"
 ```
 
 ---

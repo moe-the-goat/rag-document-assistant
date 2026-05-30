@@ -257,6 +257,7 @@ that file growing too large and to allow other parts of the codebase
 | GET /      | Returns a JSON object confirming the server is alive.       |
 | POST /upload | Accepts a file upload, runs the full ingestion pipeline, and returns how many chunks were created. |
 | POST /ask  | Accepts a JSON body with a `question` field, runs retrieval + LLM generation, and returns the answer along with the context chunks used. |
+| GET /models | Fetches the available models that are currently downloaded in Ollama. |
 | GET /status | Reports how many chunks are in the store and whether it is empty or ready. |
 | POST /clear | Deletes all vectors from the FAISS index, removes the persisted files, and deletes uploaded documents from disk. |
 
@@ -424,4 +425,3 @@ Suppose a user uploads a 10-page PDF about climate change and then asks:
   performance at larger scales.
 - Add authentication to the API.
 - Add automated tests for each module.
-- Add a dropdown to the Streamlit UI to dynamically switch between downloaded Ollama models via the backend.

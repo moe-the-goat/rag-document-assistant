@@ -9,6 +9,7 @@ from pydantic import BaseModel
 class QuestionRequest(BaseModel):
     # what the user sends when they ask a question
     question: str
+    model: str = "qwen3:4b"
 
 
 class AnswerResponse(BaseModel):
