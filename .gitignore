@@ -15,9 +15,10 @@ env/
 venv/
 .env
 
-# Runtime data (uploads and vector index)
+# Runtime data (uploads, vector index, and document registry)
 data/uploads/
 data/vector_db/
+data/registry.db
 
 # IDE / editor
 .vscode/

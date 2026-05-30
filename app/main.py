@@ -1,7 +1,7 @@
 # main.py
 # This is the FastAPI app -- the backend that ties everything together.
 # It exposes endpoints for uploading documents, asking questions,
-# checking status, and clearing the store.
+# checking status, managing documents, and clearing the store.
 
 import os
 import shutil
@@ -12,11 +12,15 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import UPLOADS_DIR, OLLAMA_BASE_URL
-from app.models import QuestionRequest, AnswerResponse, UploadResponse, StatusResponse
+from app.models import (
+    QuestionRequest, AnswerResponse, UploadResponse,
+    StatusResponse, DocumentInfo,
+)
 from app.ingestion import ingest_document
 from app.vector_store import VectorStore
 from app.retrieval import retrieve_context
 from app.llm import generate_answer
+from app import document_registry as registry
 
 
 # -- app setup ---------------------------------------------------------------
@@ -24,10 +28,11 @@ from app.llm import generate_answer
 app = FastAPI(
     title="AI Document Assistant",
     description=(
-        "A Retrieval-Augmented Generation system that answers questions "
-        "grounded in the content of uploaded documents."
+        "A privacy-first Retrieval-Augmented Generation system that answers "
+        "questions grounded in the content of uploaded documents. "
+        "All processing happens locally — no data ever leaves the machine."
     ),
-    version="1.0.0",
+    version="2.0.0",
 )
 
 # let the Streamlit frontend (or anything else) talk to us
@@ -68,9 +73,40 @@ async def upload_document(file: UploadFile = File(...)):
     with open(file_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
+    # -- duplicate detection via SHA-256 hash --------------------------------
+    file_hash = registry.compute_file_hash(file_path)
+    existing = registry.find_duplicate(file_hash)
+    if existing:
+        # same content already uploaded, clean up and let the user know
+        os.remove(file_path)
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"This document has already been uploaded as "
+                f"'{existing['original_name']}'. Duplicate files are "
+                f"skipped to keep the knowledge base clean."
+            ),
+        )
+
+    # -- ingestion pipeline --------------------------------------------------
     try:
         chunks = ingest_document(file_path)
-        vector_store.add_chunks(chunks)
+        file_size = os.path.getsize(file_path)
+
+        # register in the document registry first so we have a doc_id
+        doc_id = registry.register_document(
+            original_name=file.filename,
+            file_hash=file_hash,
+            file_type=ext,
+            file_size=file_size,
+            chunk_count=len(chunks),
+        )
+
+        # add chunks to vector store tagged with this doc_id
+        vector_store.add_chunks(chunks, doc_id=doc_id)
+
+    except HTTPException:
+        raise  # re-raise HTTP exceptions as-is
     except Exception as e:
         # something went wrong, clean up the file we saved
         if os.path.exists(file_path):
@@ -79,6 +115,7 @@ async def upload_document(file: UploadFile = File(...)):
 
     return UploadResponse(
         filename=file.filename,
+        doc_id=doc_id,
         chunks_added=len(chunks),
         total_chunks=vector_store.total_chunks,
     )
@@ -92,8 +129,9 @@ def ask_question(req: QuestionRequest):
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
-    context = retrieve_context(vector_store, question)
-    context_chunks = context.split("\n\n---\n\n") if context else []
+    context, context_chunks = retrieve_context(
+        vector_store, question, doc_ids=req.doc_ids,
+    )
 
     answer = generate_answer(context, question, req.model)
 
@@ -110,7 +148,32 @@ def get_available_models():
             return [m["name"] for m in data.get("models", [])]
     except Exception:
         pass
-    return ["qwen3:4b"] # fallback
+    return ["qwen3:4b"]  # fallback
+
+
+@app.get("/documents", response_model=list[DocumentInfo], tags=["Documents"])
+def list_documents():
+    # return all registered documents with their metadata
+    docs = registry.list_documents()
+    return [DocumentInfo(**d) for d in docs]
+
+
+@app.delete("/documents/{doc_id}", tags=["Documents"])
+def delete_document(doc_id: str):
+    # delete a single document: remove its chunks from the vector store
+    # and its entry from the registry
+    doc = registry.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    removed = vector_store.delete_by_doc_id(doc_id)
+    registry.delete_document(doc_id)
+
+    return {
+        "message": f"Document '{doc['original_name']}' deleted.",
+        "chunks_removed": removed,
+        "total_chunks": vector_store.total_chunks,
+    }
 
 
 @app.get("/status", response_model=StatusResponse, tags=["Health"])
@@ -124,10 +187,11 @@ def get_status():
 
 @app.post("/clear", tags=["Documents"])
 def clear_store():
-    # nuke everything: the vector index and all uploaded files
+    # nuke everything: the vector index, the registry, and all uploaded files
     vector_store.clear()
+    registry.clear_all()
     for fname in os.listdir(UPLOADS_DIR):
         fpath = os.path.join(UPLOADS_DIR, fname)
         if os.path.isfile(fpath):
             os.remove(fpath)
-    return {"message": "Vector store and uploads cleared."}
+    return {"message": "All documents, embeddings, and registry cleared."}
