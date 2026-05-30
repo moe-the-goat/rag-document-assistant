@@ -31,7 +31,7 @@ jobs:
 
     - name: Test with pytest
       run: |
-        pytest --cov=app tests/
+        python -m pytest --cov=app tests/
 
   build:
     needs: test
