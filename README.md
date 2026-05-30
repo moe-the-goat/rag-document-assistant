@@ -44,36 +44,40 @@ No external API keys or paid services are required.
 |    Ingestion Pipeline      |  |     Retrieval Pipeline        |
 |                            |  |                               |
 |  1. Parse document         |  |  5. Embed the question        |
-|     (PDF / TXT)            |  |  6. Search FAISS index        |
-|  2. Split into chunks      |  |  7. Fetch top-K chunks        |
-|  3. Generate embeddings    |  |  8. Build prompt with context |
-|  4. Store in FAISS         |  |  9. Send to LLM               |
+|     (PDF/TXT/DOCX/MD/HTML) |  |  6. FAISS semantic search     |
+|  2. Split into chunks      |  |  7. BM25 keyword search       |
+|  3. Generate embeddings    |  |  8. Reciprocal Rank Fusion    |
+|  4. Store in FAISS + BM25  |  |  9. Build prompt with context |
+|                            |  | 10. Send to LLM               |
 +------------+---------------+  +---------------+---------------+
              |                                  |
              v                                  v
 +----------------------------+  +-------------------------------+
-|   FAISS Vector Database    |<-|   Ollama LLM  (qwen3:4b)     |
-|   (persisted to disk)      |  |   + nomic-embed-text          |
+| FAISS + BM25 Hybrid Index  |<-|   Ollama LLM  (selectable)    |
+| (persisted to disk)        |  |   + nomic-embed-text          |
 +----------------------------+  +-------------------------------+
 ```
 
 ### Pipeline Summary
 
-1. The user uploads a PDF or plain-text file.
-2. The file is parsed and split into overlapping text chunks (800 characters
-   with 150-character overlap by default).
+1. The user uploads a document (PDF, TXT, DOCX, MD, or HTML).
+2. The file is parsed and split into overlapping text chunks (1000 characters
+   with 200-character overlap by default).
 3. Each chunk is converted into a high-dimensional vector using the
    `nomic-embed-text` embedding model served by Ollama.
-4. The vectors are stored in a FAISS flat-L2 index that is persisted to disk.
+4. The vectors are stored in a FAISS flat-L2 index, and the raw text is
+   indexed by BM25 for keyword matching. Both are persisted to disk.
 5. When the user asks a question, the question text is embedded with the same
-   model.
-6. FAISS performs a nearest-neighbour search and returns the top-K most
-   similar chunks.
-7. Those chunks are injected into a prompt template along with the original
-   question.
-8. The prompt is sent to the `qwen3:4b` language model running on Ollama.
-9. The model generates an answer that is strictly grounded in the retrieved
-   context.
+   model and also tokenized for BM25.
+6. FAISS performs a semantic nearest-neighbour search, while BM25 performs
+   a keyword-based search in parallel.
+7. Results from both methods are merged using Reciprocal Rank Fusion (RRF),
+   which naturally balances semantic understanding with exact keyword matching.
+8. The top-K fused chunks are injected into a prompt template along with the
+   original question.
+9. The prompt is sent to the selected language model running on Ollama.
+10. The model generates an answer that is strictly grounded in the retrieved
+    context.
 
 ---
 
@@ -83,9 +87,12 @@ No external API keys or paid services are required.
 |-------------------|-------------------------|---------------------------------------------|
 | Language          | Python 3.11+            | All backend and frontend code               |
 | Orchestration     | LangChain               | Text splitting, embedding and LLM wrappers  |
-| LLM               | Ollama  (qwen3:4b)      | Answer generation                           |
+| LLM               | Ollama  (qwen3:4b / qwen2.5) | Answer generation (user-selectable)    |
 | Embeddings        | Ollama  (nomic-embed-text)| Vectorising text chunks and queries        |
-| Vector Database   | FAISS  (faiss-cpu)       | Storing and searching embeddings            |
+| Semantic Search   | FAISS  (faiss-cpu)       | Vector similarity search                    |
+| Keyword Search    | BM25  (rank-bm25)       | Exact keyword matching                      |
+| Search Fusion     | Reciprocal Rank Fusion   | Merging semantic + keyword results          |
+| Document Registry | SQLite                   | Per-document metadata and duplicate detection |
 | API Framework     | FastAPI + Uvicorn        | REST backend                                |
 | Frontend          | Streamlit                | Browser-based chat interface                |
 
@@ -207,9 +214,9 @@ environment variables:
 | OLLAMA_BASE_URL   | http://localhost:11434      | Ollama server address                |
 | LLM_MODEL         | qwen3:4b                   | Model used for answer generation     |
 | EMBEDDING_MODEL   | nomic-embed-text           | Model used for text embeddings       |
-| CHUNK_SIZE        | 800                        | Max characters per text chunk        |
-| CHUNK_OVERLAP     | 150                        | Overlap between consecutive chunks   |
-| TOP_K             | 6                          | Number of chunks retrieved per query |
+| CHUNK_SIZE        | 1000                       | Max characters per text chunk        |
+| CHUNK_OVERLAP     | 200                        | Overlap between consecutive chunks   |
+| TOP_K             | 8                          | Number of chunks retrieved per query |
 
 ---
 
