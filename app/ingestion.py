@@ -9,6 +9,8 @@
 import os
 
 import fitz  # PyMuPDF
+import docx
+from bs4 import BeautifulSoup
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from app.config import CHUNK_SIZE, CHUNK_OVERLAP
@@ -32,15 +34,32 @@ def extract_text_from_txt(file_path: str) -> str:
         return f.read()
 
 
+def extract_text_from_docx(file_path: str) -> str:
+    # extract all paragraphs and join them with newlines
+    doc = docx.Document(file_path)
+    return "\n".join([para.text for para in doc.paragraphs])
+
+
+def extract_text_from_html(file_path: str) -> str:
+    # use BeautifulSoup to strip HTML tags and scripts, leaving just the text
+    with open(file_path, "r", encoding="utf-8") as f:
+        soup = BeautifulSoup(f, "html.parser")
+        return soup.get_text(separator="\n", strip=True)
+
+
 def load_document(file_path: str) -> str:
     # pick the right reader based on the file extension
     ext = os.path.splitext(file_path)[1].lower()
     if ext == ".pdf":
         return extract_text_from_pdf(file_path)
-    elif ext == ".txt":
+    elif ext in [".txt", ".md"]:
         return extract_text_from_txt(file_path)
+    elif ext == ".docx":
+        return extract_text_from_docx(file_path)
+    elif ext == ".html":
+        return extract_text_from_html(file_path)
     else:
-        raise ValueError(f"Unsupported file type: {ext}. Supported: .pdf, .txt")
+        raise ValueError(f"Unsupported file type: {ext}. Supported: .pdf, .txt, .docx, .md, .html")
 
 
 # -- Chunking ----------------------------------------------------------------

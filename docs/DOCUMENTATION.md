@@ -121,13 +121,9 @@ created on import if they do not exist.
 embedding.
 
 **Step 1 -- Parsing.**
-The module supports two formats:
+The module supports several formats:
 
-- **PDF:** Parsed with PyMuPDF (the `fitz` library).  PyMuPDF reads each
-  page and extracts text while preserving reading order.  It is fast,
-  dependency-free (no Java, no Poppler), and handles most PDF layouts
-  reliably.
-- **TXT:** Read as a simple UTF-8 string.
+- **Extraction:** `PyMuPDF` reads the uploaded PDF and extracts raw text. Plain text and markdown files are read directly. `python-docx` extracts paragraphs from Word documents, and `BeautifulSoup4` strips tags from HTML files to extract visible text.
 
 The `load_document()` function looks at the file extension to choose the
 right parser.
@@ -396,6 +392,8 @@ Suppose a user uploads a 10-page PDF about climate change and then asks:
 | langchain-ollama   | 0.3.3     | Embedding and chat model wrappers        |
 | FAISS (faiss-cpu)  | 1.9.0     | Vector similarity search                 |
 | PyMuPDF (fitz)     | 1.26.7    | PDF text extraction                      |
+| python-docx        | 1.1.2     | Word document text extraction            |
+| BeautifulSoup4     | 4.12.3    | HTML text extraction                     |
 | Streamlit          | 1.45.0    | Frontend chat interface                  |
 | Ollama             | (local)   | Serves LLM and embedding models locally  |
 
@@ -419,7 +417,6 @@ Suppose a user uploads a 10-page PDF about climate change and then asks:
 
 ## 8. Possible Future Improvements
 
-- Add support for more file formats (DOCX, Markdown, HTML).
 - Implement per-document metadata so users can query specific files.
 - Add a re-ranking step (e.g. a cross-encoder) after FAISS retrieval to
   improve relevance.

@@ -40,7 +40,7 @@ app.add_middleware(
 # one shared vector store for all requests
 vector_store = VectorStore()
 
-ALLOWED_EXTENSIONS = {".pdf", ".txt"}
+ALLOWED_EXTENSIONS = {".pdf", ".txt", ".docx", ".md", ".html"}
 
 
 # -- routes ------------------------------------------------------------------

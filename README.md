@@ -160,7 +160,7 @@ docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
 1. Wait for the containers to start and the models to finish downloading (you will see 'success' in the docker logs).
 2. Open your browser and navigate to **http://localhost:8501** for the Streamlit UI.
 3. The API documentation is available at **http://localhost:8000/docs**.
-4. Use the sidebar on the left of the UI to upload a PDF or TXT file and click **Ingest Document**.
+4. Use the sidebar on the left of the UI to upload a document (PDF, TXT, DOCX, MD, HTML) and click **Ingest Document**.
 5. Once the document is processed, type a question in the chat box at the bottom.
 6. The system will retrieve relevant passages and generate an answer.
 
@@ -171,7 +171,7 @@ docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
 | Method | Endpoint  | Description                                    |
 |--------|-----------|------------------------------------------------|
 | GET    | /         | Health check                                   |
-| POST   | /upload   | Upload and ingest a document (PDF or TXT)      |
+| POST   | /upload   | Upload and ingest a document (PDF, TXT, DOCX, MD, HTML)      |
 | POST   | /ask      | Ask a question about the ingested documents    |
 | GET    | /status   | Return the number of chunks in the store       |
 | POST   | /clear    | Delete all documents and embeddings            |
