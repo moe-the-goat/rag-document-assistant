@@ -141,11 +141,21 @@ def ask_question(req: QuestionRequest):
 @app.get("/models", response_model=list[str], tags=["Models"])
 def get_available_models():
     # fetch available models dynamically from Ollama API
+    # filter out embedding-only models so users only see chat models
+    EMBEDDING_PATTERNS = {"embed", "embedding"}
     try:
         resp = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
         if resp.status_code == 200:
             data = resp.json()
-            return [m["name"] for m in data.get("models", [])]
+            chat_models = []
+            for m in data.get("models", []):
+                name = m["name"].lower()
+                # skip models that are clearly embedding-only
+                if any(pat in name for pat in EMBEDDING_PATTERNS):
+                    continue
+                chat_models.append(m["name"])
+            if chat_models:
+                return chat_models
     except Exception:
         pass
     return ["qwen3:4b"]  # fallback

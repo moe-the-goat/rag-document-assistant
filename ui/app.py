@@ -38,11 +38,21 @@ with st.sidebar:
     except requests.ConnectionError:
         pass
 
+    # model descriptions to help users pick the right one
+    MODEL_INFO = {
+        "qwen3:4b": "Fast, lightweight (recommended for most use)",
+        "qwen2.5:latest": "Strong multilingual & Arabic support",
+        "qwen2.5:7b": "Strong multilingual & Arabic support (7B)",
+        "llama3.2:latest": "Meta's general-purpose model",
+        "mistral:latest": "Fast European multilingual model",
+    }
+
     selected_model = st.selectbox(
         "Select Model",
         options=available_models,
         index=0,
-        help="Select the AI model you want to use. You must 'ollama pull' the model first.",
+        format_func=lambda m: f"{m}  —  {MODEL_INFO[m]}" if m in MODEL_INFO else m,
+        help="Choose which AI model answers your questions. Embedding models are filtered out automatically.",
     )
     st.divider()
 
@@ -226,7 +236,10 @@ if question := st.chat_input("Ask something about your documents..."):
                         "context": data.get("context_chunks", []),
                     })
                 else:
-                    err = resp.json().get("detail", resp.text)
+                    try:
+                        err = resp.json().get("detail", resp.text)
+                    except requests.exceptions.JSONDecodeError:
+                        err = resp.text or f"Server error (status {resp.status_code})"
                     st.error(f"Error: {err}")
             except requests.exceptions.ReadTimeout:
                 st.error(
