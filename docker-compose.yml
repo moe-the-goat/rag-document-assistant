@@ -50,7 +50,7 @@ services:
     container_name: document-assistant-frontend
     restart: unless-stopped
     ports:
-      - "8501:8501"
+      - "8501:80"
     environment:
       - API_URL=http://backend:8000
       # Must match the backend's API_KEY for authentication

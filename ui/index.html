@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Document Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <button id="new-chat-btn" class="btn primary-btn">
+                    <span class="icon">✨</span> New Chat
+                </button>
+                <button id="toggle-sidebar" class="btn icon-btn" title="Close Sidebar">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+            </div>
+
+            <div class="sidebar-content">
+                <section class="sidebar-section">
+                    <h3>Conversations</h3>
+                    <div id="conversations-list" class="list-container">
+                        <!-- Convos injected here -->
+                    </div>
+                </section>
+
+                <section class="sidebar-section">
+                    <h3>Document Upload</h3>
+                    <div class="upload-container">
+                        <input type="file" id="file-input" accept=".pdf,.txt,.docx,.md,.html" style="display:none">
+                        <button id="upload-btn" class="btn secondary-btn" onclick="document.getElementById('file-input').click()">
+                            <span class="icon">📄</span> Choose File
+                        </button>
+                        <div id="upload-status" class="status-text"></div>
+                    </div>
+                </section>
+
+                <section class="sidebar-section">
+                    <h3>Library</h3>
+                    <div id="document-library" class="list-container">
+                        <!-- Docs injected here -->
+                    </div>
+                </section>
+            </div>
+
+            <div class="sidebar-footer">
+                <select id="model-select" class="custom-select">
+                    <option value="qwen2.5:latest">qwen2.5:latest (Recommended)</option>
+                    <option value="qwen3:4b">qwen3:4b (Fast)</option>
+                </select>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-area">
+            <header class="chat-header">
+                <button id="open-sidebar" class="btn icon-btn" style="display:none;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+                <div class="header-title">
+                    <h2>Gemini Assistant</h2>
+                    <span id="current-chat-title" class="subtitle">New Conversation</span>
+                </div>
+            </header>
+
+            <div class="messages-container" id="messages-container">
+                <!-- Welcome Message -->
+                <div class="welcome-screen" id="welcome-screen">
+                    <h1 class="gradient-text">Hello, Mohammad.</h1>
+                    <p>What would you like to know about your documents today?</p>
+                </div>
+                <!-- Chat Bubbles injected here -->
+            </div>
+
+            <div class="input-area-wrapper">
+                <div class="input-container">
+                    <textarea id="chat-input" placeholder="Ask something about your documents..." rows="1"></textarea>
+                    <button id="send-btn" class="btn icon-btn send-btn" disabled>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </div>
+                <div class="footer-text">
+                    Answers are generated locally. All data stays on your machine.
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
