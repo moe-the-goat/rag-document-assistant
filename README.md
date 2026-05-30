@@ -104,9 +104,11 @@ No external API keys or paid services are required.
 .
 |-- app/
 |   |-- __init__.py          Package metadata
+|   |-- auth.py              Optional API key authentication
 |   |-- config.py            Centralised settings (env-var overridable)
 |   |-- conversation.py      SQLite conversation history with message storage
 |   |-- document_registry.py SQLite document registry with duplicate detection
+|   |-- file_validator.py    File size, type, and filename validation
 |   |-- ingestion.py         Document parsing and text chunking
 |   |-- vector_store.py      FAISS + BM25 hybrid search with per-document tracking
 |   |-- retrieval.py         Semantic retrieval logic with document filtering
@@ -126,6 +128,7 @@ No external API keys or paid services are required.
 |-- docs/
 |   +-- DOCUMENTATION.md     Detailed technical documentation
 |
+|-- .env.example             Template for environment variables
 |-- requirements.txt         Pinned Python dependencies
 |-- .gitignore
 +-- README.md                This file
@@ -214,16 +217,58 @@ curl -X POST http://localhost:8000/ask \
 ## Configuration
 
 All settings are defined in `app/config.py` and can be overridden with
-environment variables:
+environment variables. See `.env.example` for a template.
 
 | Variable          | Default                    | Description                          |
 |-------------------|----------------------------|--------------------------------------|
 | OLLAMA_BASE_URL   | http://localhost:11434      | Ollama server address                |
-| LLM_MODEL         | qwen3:4b                   | Model used for answer generation     |
+| LLM_MODEL         | qwen2.5:latest             | Model used for answer generation     |
 | EMBEDDING_MODEL   | nomic-embed-text           | Model used for text embeddings       |
 | CHUNK_SIZE        | 1000                       | Max characters per text chunk        |
 | CHUNK_OVERLAP     | 200                        | Overlap between consecutive chunks   |
 | TOP_K             | 8                          | Number of chunks retrieved per query |
+| API_KEY           | *(empty — auth disabled)*  | Set to enable API key authentication |
+| MAX_FILE_SIZE_MB  | 50                         | Maximum upload file size in MB       |
+| RATE_LIMIT        | 30/minute                  | Rate limit for the /ask endpoint     |
+| LOG_LEVEL         | INFO                       | Logging verbosity (DEBUG/INFO/WARNING/ERROR) |
+
+---
+
+## Security
+
+The system includes multiple security layers designed for handling sensitive documents:
+
+### API Key Authentication
+Set the `API_KEY` environment variable to require authentication on all
+protected endpoints. When enabled, requests must include an
+`Authorization: Bearer <key>` header. Disabled by default for easy local
+development.
+
+```bash
+# Enable auth by creating a .env file:
+echo "API_KEY=my-secret-key" > .env
+docker-compose up --build
+```
+
+### Rate Limiting
+The `/ask` endpoint is rate-limited (30 requests/minute by default) to
+prevent abuse. Configurable via the `RATE_LIMIT` environment variable.
+
+### File Validation
+Uploaded files are validated beyond just extension checking:
+- **Size limits:** Configurable maximum (default 50 MB)
+- **Magic byte verification:** Files are checked against known format
+  signatures to prevent disguised uploads
+- **Filename sanitization:** Dangerous characters and path traversal
+  attempts are stripped
+
+### Structured Logging
+All operations (uploads, questions, deletions) are logged with timestamps
+for audit trails. Set `LOG_LEVEL=DEBUG` for verbose output.
+
+### Container Resilience
+All Docker containers use `restart: unless-stopped` and health checks to
+automatically recover from crashes.
 
 ---
 

@@ -30,6 +30,20 @@ VECTOR_DB_DIR = os.path.join(DATA_DIR, "vector_db")
 # 8 gives broad coverage without overwhelming the model's context window
 TOP_K = int(os.getenv("TOP_K", "8"))
 
+# -- Security --
+# API key authentication (optional): if not set, auth is disabled
+# Set this to any secret string to require authentication on all endpoints
+API_KEY = os.getenv("API_KEY", "")
+
+# maximum upload file size in megabytes
+MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "50"))
+
+# rate limiting: max requests per minute for the /ask endpoint
+RATE_LIMIT = os.getenv("RATE_LIMIT", "30/minute")
+
+# -- Logging --
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
 # make sure the data folders exist so we don't have to check later
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 os.makedirs(VECTOR_DB_DIR, exist_ok=True)

@@ -1,17 +1,27 @@
 # main.py
-# This is the FastAPI app -- the backend that ties everything together.
+# This is the FastAPI app — the backend that ties everything together.
 # It exposes endpoints for uploading documents, asking questions,
 # managing conversations, checking status, and clearing the store.
+#
+# Security features:
+#   - Optional API key authentication (set API_KEY env var to enable)
+#   - Rate limiting on /ask endpoint (prevents abuse)
+#   - File validation (size limits, magic byte checks, filename sanitization)
+#   - Structured logging with timestamps for audit trails
 
+import logging
 import os
 import shutil
 import uuid
-import requests
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+import requests as http_requests
+from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
-from app.config import UPLOADS_DIR, OLLAMA_BASE_URL
+from app.config import UPLOADS_DIR, OLLAMA_BASE_URL, RATE_LIMIT, LOG_LEVEL
 from app.models import (
     QuestionRequest, AnswerResponse, UploadResponse,
     StatusResponse, DocumentInfo, ConversationInfo,
@@ -23,6 +33,23 @@ from app.retrieval import retrieve_context
 from app.llm import generate_answer
 from app import document_registry as registry
 from app import conversation as conv
+from app.auth import require_auth
+from app.file_validator import validate_file_size, validate_file_type, sanitize_filename
+
+
+# -- logging setup -----------------------------------------------------------
+
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL.upper(), logging.INFO),
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("rag-api")
+
+
+# -- rate limiter setup ------------------------------------------------------
+
+limiter = Limiter(key_func=get_remote_address)
 
 
 # -- app setup ---------------------------------------------------------------
@@ -34,10 +61,12 @@ app = FastAPI(
         "questions grounded in the content of uploaded documents. "
         "All processing happens locally — no data ever leaves the machine."
     ),
-    version="3.0.0",
+    version="3.1.0",
 )
 
-# let the Streamlit frontend (or anything else) talk to us
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -51,7 +80,7 @@ vector_store = VectorStore()
 ALLOWED_EXTENSIONS = {".pdf", ".txt", ".docx", ".md", ".html"}
 
 
-# -- routes: health ----------------------------------------------------------
+# -- routes: health (no auth required) --------------------------------------
 
 @app.get("/", tags=["Health"])
 def root():
@@ -66,23 +95,35 @@ def get_status():
     )
 
 
-# -- routes: documents -------------------------------------------------------
+# -- routes: documents (auth required) --------------------------------------
 
-@app.post("/upload", response_model=UploadResponse, tags=["Documents"])
+@app.post("/upload", response_model=UploadResponse, tags=["Documents"],
+          dependencies=[Depends(require_auth)])
 async def upload_document(file: UploadFile = File(...)):
-    ext = os.path.splitext(file.filename)[1].lower()
+    original_name = sanitize_filename(file.filename or "unnamed.pdf")
+    ext = os.path.splitext(original_name)[1].lower()
+
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file type '{ext}'. Allowed: {ALLOWED_EXTENSIONS}",
+            detail=f"Unsupported file type '{ext}'. Allowed: {', '.join(ALLOWED_EXTENSIONS)}",
         )
 
+    # save to disk with a UUID name to prevent collisions
     safe_name = f"{uuid.uuid4().hex}{ext}"
     file_path = os.path.join(UPLOADS_DIR, safe_name)
     with open(file_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    # duplicate detection
+    # -- security validation -------------------------------------------------
+    try:
+        validate_file_size(file_path)
+        validate_file_type(file_path, ext)
+    except ValueError as e:
+        os.remove(file_path)
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # -- duplicate detection -------------------------------------------------
     file_hash = registry.compute_file_hash(file_path)
     existing = registry.find_duplicate(file_hash)
     if existing:
@@ -96,13 +137,13 @@ async def upload_document(file: UploadFile = File(...)):
             ),
         )
 
-    # ingestion pipeline
+    # -- ingestion pipeline --------------------------------------------------
     try:
         chunks = ingest_document(file_path)
         file_size = os.path.getsize(file_path)
 
         doc_id = registry.register_document(
-            original_name=file.filename,
+            original_name=original_name,
             file_hash=file_hash,
             file_type=ext,
             file_size=file_size,
@@ -111,29 +152,36 @@ async def upload_document(file: UploadFile = File(...)):
         )
 
         vector_store.add_chunks(chunks, doc_id=doc_id)
+        logger.info(
+            f"Document ingested: '{original_name}' → {len(chunks)} chunks "
+            f"(doc_id={doc_id})"
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         if os.path.exists(file_path):
             os.remove(file_path)
+        logger.error(f"Ingestion failed for '{original_name}': {e}")
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {e}")
 
     return UploadResponse(
-        filename=file.filename,
+        filename=original_name,
         doc_id=doc_id,
         chunks_added=len(chunks),
         total_chunks=vector_store.total_chunks,
     )
 
 
-@app.get("/documents", response_model=list[DocumentInfo], tags=["Documents"])
+@app.get("/documents", response_model=list[DocumentInfo], tags=["Documents"],
+         dependencies=[Depends(require_auth)])
 def list_documents():
     docs = registry.list_documents()
     return [DocumentInfo(**d) for d in docs]
 
 
-@app.delete("/documents/{doc_id}", tags=["Documents"])
+@app.delete("/documents/{doc_id}", tags=["Documents"],
+            dependencies=[Depends(require_auth)])
 def delete_document(doc_id: str):
     doc = registry.get_document(doc_id)
     if not doc:
@@ -145,6 +193,10 @@ def delete_document(doc_id: str):
         os.remove(doc["file_path"])
 
     registry.delete_document(doc_id)
+    logger.info(
+        f"Document deleted: '{doc['original_name']}' "
+        f"({removed} chunks removed)"
+    )
 
     return {
         "message": f"Document '{doc['original_name']}' deleted.",
@@ -153,27 +205,27 @@ def delete_document(doc_id: str):
     }
 
 
-# -- routes: Q&A -------------------------------------------------------------
+# -- routes: Q&A (auth + rate limit) ----------------------------------------
 
-@app.post("/ask", response_model=AnswerResponse, tags=["Q&A"])
-def ask_question(req: QuestionRequest):
+@app.post("/ask", response_model=AnswerResponse, tags=["Q&A"],
+          dependencies=[Depends(require_auth)])
+@limiter.limit(RATE_LIMIT)
+def ask_question(request: Request, req: QuestionRequest):
     question = req.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
-    # if a conversation_id is provided, use it; otherwise create a new one
+    # conversation management
     conversation_id = req.conversation_id
     if conversation_id:
-        # verify it exists
         if not conv.get_conversation(conversation_id):
             raise HTTPException(status_code=404, detail="Conversation not found.")
     else:
-        # auto-create a conversation titled after the first question
         conversation_id = conv.create_conversation(
             title=conv._auto_title(question),
         )
 
-    # save the user message
+    # save user message
     conv.add_message(
         conversation_id=conversation_id,
         role="user",
@@ -181,19 +233,24 @@ def ask_question(req: QuestionRequest):
         model_used=req.model,
     )
 
-    # RAG pipeline: retrieve → generate
+    # RAG pipeline
     context, context_chunks = retrieve_context(
         vector_store, question, doc_ids=req.doc_ids,
     )
     answer = generate_answer(context, question, req.model)
 
-    # save the assistant message
+    # save assistant message
     conv.add_message(
         conversation_id=conversation_id,
         role="assistant",
         content=answer,
         context_chunks=context_chunks,
         model_used=req.model,
+    )
+
+    logger.info(
+        f"Question answered: '{question[:50]}...' "
+        f"(model={req.model}, chunks={len(context_chunks)})"
     )
 
     return AnswerResponse(
@@ -203,9 +260,10 @@ def ask_question(req: QuestionRequest):
     )
 
 
-# -- routes: conversations ---------------------------------------------------
+# -- routes: conversations (auth required) -----------------------------------
 
-@app.get("/conversations", response_model=list[ConversationInfo], tags=["Conversations"])
+@app.get("/conversations", response_model=list[ConversationInfo],
+         tags=["Conversations"], dependencies=[Depends(require_auth)])
 def list_conversations():
     conversations = conv.list_conversations()
     result = []
@@ -220,13 +278,15 @@ def list_conversations():
     return result
 
 
-@app.post("/conversations", tags=["Conversations"])
+@app.post("/conversations", tags=["Conversations"],
+          dependencies=[Depends(require_auth)])
 def create_conversation(title: str = "New Conversation"):
     conv_id = conv.create_conversation(title=title)
     return {"conversation_id": conv_id, "title": title}
 
 
-@app.get("/conversations/{conversation_id}", response_model=ConversationDetail, tags=["Conversations"])
+@app.get("/conversations/{conversation_id}", response_model=ConversationDetail,
+         tags=["Conversations"], dependencies=[Depends(require_auth)])
 def get_conversation(conversation_id: str):
     c = conv.get_conversation(conversation_id)
     if not c:
@@ -242,7 +302,8 @@ def get_conversation(conversation_id: str):
     )
 
 
-@app.patch("/conversations/{conversation_id}", tags=["Conversations"])
+@app.patch("/conversations/{conversation_id}", tags=["Conversations"],
+           dependencies=[Depends(require_auth)])
 def rename_conversation(conversation_id: str, req: RenameRequest):
     if not conv.get_conversation(conversation_id):
         raise HTTPException(status_code=404, detail="Conversation not found.")
@@ -250,20 +311,22 @@ def rename_conversation(conversation_id: str, req: RenameRequest):
     return {"message": "Conversation renamed.", "title": req.title}
 
 
-@app.delete("/conversations/{conversation_id}", tags=["Conversations"])
+@app.delete("/conversations/{conversation_id}", tags=["Conversations"],
+            dependencies=[Depends(require_auth)])
 def delete_conversation(conversation_id: str):
     if not conv.delete_conversation(conversation_id):
         raise HTTPException(status_code=404, detail="Conversation not found.")
+    logger.info(f"Conversation deleted: {conversation_id}")
     return {"message": "Conversation deleted."}
 
 
-# -- routes: models -----------------------------------------------------------
+# -- routes: models ----------------------------------------------------------
 
 @app.get("/models", response_model=list[str], tags=["Models"])
 def get_available_models():
     EMBEDDING_PATTERNS = {"embed", "embedding"}
     try:
-        resp = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
+        resp = http_requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
         if resp.status_code == 200:
             data = resp.json()
             chat_models = []
@@ -276,12 +339,13 @@ def get_available_models():
                 return chat_models
     except Exception:
         pass
-    return ["qwen3:4b"]
+    return ["qwen2.5:latest"]
 
 
-# -- routes: maintenance ------------------------------------------------------
+# -- routes: maintenance -----------------------------------------------------
 
-@app.post("/clear", tags=["Maintenance"])
+@app.post("/clear", tags=["Maintenance"],
+          dependencies=[Depends(require_auth)])
 def clear_store():
     vector_store.clear()
     registry.clear_all()
@@ -290,4 +354,5 @@ def clear_store():
         fpath = os.path.join(UPLOADS_DIR, fname)
         if os.path.isfile(fpath):
             os.remove(fpath)
+    logger.info("All data cleared (documents, conversations, embeddings)")
     return {"message": "All documents, embeddings, conversations, and registry cleared."}

@@ -2,40 +2,62 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
+    restart: unless-stopped
     ports:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-    # This entrypoint starts the server in the background, waits a few seconds, 
-    # pulls the necessary models, and then waits for the server process to keep the container alive.
+    # Start server, wait, pull models, then keep alive
     entrypoint: [ "sh", "-c", "ollama serve & sleep 5 && ollama pull qwen2.5 && ollama pull qwen3:4b && ollama pull nomic-embed-text && wait" ]
+    healthcheck:
+      test: ["CMD", "sh", "-c", "ollama list > /dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     container_name: document-assistant-backend
+    restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
+      # Set API_KEY to enable authentication (leave empty to disable)
+      - API_KEY=${API_KEY:-}
+      - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
+      - RATE_LIMIT=${RATE_LIMIT:-30/minute}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
-      # Mount the data folder so uploaded PDFs and the FAISS index persist
       - ./data:/app/data
     depends_on:
-      - ollama
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
     container_name: document-assistant-frontend
+    restart: unless-stopped
     ports:
       - "8501:8501"
     environment:
       - API_URL=http://backend:8000
+      # Must match the backend's API_KEY for authentication
+      - API_KEY=${API_KEY:-}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   ollama_data:

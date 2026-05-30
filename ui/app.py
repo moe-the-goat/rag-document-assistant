@@ -17,14 +17,24 @@ import streamlit as st
 import requests
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
+API_KEY = os.getenv("API_KEY", "")
 
 
 # -- helpers -----------------------------------------------------------------
 
+def _auth_headers() -> dict:
+    """Build authorization headers if an API key is configured."""
+    if API_KEY:
+        return {"Authorization": f"Bearer {API_KEY}"}
+    return {}
+
+
 def api_get(path: str, timeout: int = 5):
     """GET helper that returns JSON or None on failure."""
     try:
-        resp = requests.get(f"{API_URL}{path}", timeout=timeout)
+        resp = requests.get(
+            f"{API_URL}{path}", headers=_auth_headers(), timeout=timeout,
+        )
         if resp.status_code == 200:
             return resp.json()
     except (requests.ConnectionError, requests.exceptions.ReadTimeout):
@@ -35,7 +45,10 @@ def api_get(path: str, timeout: int = 5):
 def api_post(path: str, json=None, timeout: int = 10):
     """POST helper that returns (status_code, json_or_text)."""
     try:
-        resp = requests.post(f"{API_URL}{path}", json=json, timeout=timeout)
+        resp = requests.post(
+            f"{API_URL}{path}", json=json, headers=_auth_headers(),
+            timeout=timeout,
+        )
         try:
             return resp.status_code, resp.json()
         except requests.exceptions.JSONDecodeError:
@@ -49,7 +62,9 @@ def api_post(path: str, json=None, timeout: int = 10):
 def api_delete(path: str, timeout: int = 10):
     """DELETE helper that returns (status_code, json_or_text)."""
     try:
-        resp = requests.delete(f"{API_URL}{path}", timeout=timeout)
+        resp = requests.delete(
+            f"{API_URL}{path}", headers=_auth_headers(), timeout=timeout,
+        )
         try:
             return resp.status_code, resp.json()
         except requests.exceptions.JSONDecodeError:
@@ -186,7 +201,10 @@ with st.sidebar:
                         uploaded_file.type,
                     )
                 }
-                resp = requests.post(f"{API_URL}/upload", files=files, timeout=300)
+                resp = requests.post(
+                    f"{API_URL}/upload", files=files,
+                    headers=_auth_headers(), timeout=300,
+                )
                 if resp.status_code == 200:
                     data = resp.json()
                     st.success(
@@ -345,6 +363,7 @@ if question := st.chat_input("Ask something about your documents..."):
                     resp = requests.post(
                         f"{API_URL}/ask",
                         json=payload,
+                        headers=_auth_headers(),
                         timeout=600,
                     )
                     stop_placeholder.empty()
