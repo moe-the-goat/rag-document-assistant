@@ -8,7 +8,7 @@ import os
 # -- Ollama connection --
 # where Ollama is running and which models we're using
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-LLM_MODEL = os.getenv("LLM_MODEL", "qwen3:4b")
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:latest")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
 
 # -- Chunking --

@@ -9,7 +9,7 @@ from pydantic import BaseModel
 class QuestionRequest(BaseModel):
     # what the user sends when they ask a question
     question: str
-    model: str = "qwen3:4b"
+    model: str = "qwen2.5:latest"
     doc_ids: list[str] | None = None  # optional: filter to specific documents
     conversation_id: str | None = None  # optional: save to a conversation
 

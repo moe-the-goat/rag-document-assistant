@@ -138,23 +138,30 @@ with st.sidebar:
 
     # ---- AI Model Selection ------------------------------------------------
     st.header("🤖 AI Model")
-    available_models = ["qwen3:4b"]
+    available_models = ["qwen2.5:latest"]
     fetched = api_get("/models")
     if fetched:
         available_models = fetched
 
     MODEL_INFO = {
-        "qwen3:4b": "Fast, lightweight (recommended for most use)",
-        "qwen2.5:latest": "Strong multilingual & Arabic support",
-        "qwen2.5:7b": "Strong multilingual & Arabic support (7B)",
+        "qwen2.5:latest": "Best overall — strong reasoning & multilingual (recommended)",
+        "qwen3:4b": "Lightweight — fast but limited analysis",
+        "qwen2.5:7b": "Larger variant — strongest reasoning (needs more VRAM)",
         "llama3.2:latest": "Meta's general-purpose model",
         "mistral:latest": "Fast European multilingual model",
     }
 
+    # try to default to qwen2.5 if available
+    default_idx = 0
+    for i, m in enumerate(available_models):
+        if "qwen2.5" in m:
+            default_idx = i
+            break
+
     selected_model = st.selectbox(
         "Select Model",
         options=available_models,
-        index=0,
+        index=default_idx,
         format_func=lambda m: f"{m}  —  {MODEL_INFO[m]}" if m in MODEL_INFO else m,
         help="Choose which AI model answers your questions.",
     )
