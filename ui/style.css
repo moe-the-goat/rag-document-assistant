@@ -192,10 +192,17 @@ body {
 .messages-container {
     flex-grow: 1;
     overflow-y: auto;
-    padding: 24px 15%;
+    padding: 24px;
     display: flex;
     flex-direction: column;
     gap: 32px;
+}
+
+.messages-container > * {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
 }
 
 /* Welcome Screen */
@@ -294,7 +301,10 @@ body {
 
 /* Input Area */
 .input-area-wrapper {
-    padding: 0 15% 24px;
+    padding: 0 24px 24px;
+    max-width: 948px; /* 900px + padding to align with messages container content */
+    margin: 0 auto;
+    width: 100%;
 }
 
 .input-container {
