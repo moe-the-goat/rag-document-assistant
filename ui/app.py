@@ -207,47 +207,67 @@ if question := st.chat_input("Ask something about your documents..."):
         st.markdown(question)
 
     with st.chat_message("assistant"):
-        with st.spinner("Generating answer..."):
-            try:
-                payload = {
-                    "question": question,
-                    "model": selected_model,
-                }
-                # only add doc_ids filter if user selected specific documents
-                if selected_doc_ids:
-                    payload["doc_ids"] = selected_doc_ids
+        # show a stop button so the user can cancel generation
+        stop_placeholder = st.empty()
+        stop_clicked = stop_placeholder.button(
+            "⏹ Stop generating", type="secondary", use_container_width=True,
+        )
 
-                resp = requests.post(
-                    f"{API_URL}/ask",
-                    json=payload,
-                    timeout=600,
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    st.markdown(data["answer"])
-                    if data.get("context_chunks"):
-                        with st.expander("Retrieved context"):
-                            for i, chunk in enumerate(data["context_chunks"], 1):
-                                st.markdown(f"**Chunk {i}:**\n{chunk}")
-                                st.divider()
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": data["answer"],
-                        "context": data.get("context_chunks", []),
-                    })
-                else:
-                    try:
-                        err = resp.json().get("detail", resp.text)
-                    except requests.exceptions.JSONDecodeError:
-                        err = resp.text or f"Server error (status {resp.status_code})"
-                    st.error(f"Error: {err}")
-            except requests.exceptions.ReadTimeout:
-                st.error(
-                    "The model took too long to respond (timeout). Running AI models on a CPU can be slow. "
-                    "Try asking a simpler question, or run the application in GPU mode if you have an NVIDIA graphics card."
-                )
-            except requests.ConnectionError:
-                st.error(
-                    "Could not reach the API. Make sure the FastAPI server "
-                    "is running:  python -m uvicorn app.main:app --port 8000"
-                )
+        if stop_clicked:
+            stop_placeholder.empty()
+            st.warning("Generation cancelled.")
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": "*(Generation cancelled by user)*",
+                "context": [],
+            })
+        else:
+            with st.spinner("Generating answer..."):
+                try:
+                    payload = {
+                        "question": question,
+                        "model": selected_model,
+                    }
+                    # only add doc_ids filter if user selected specific documents
+                    if selected_doc_ids:
+                        payload["doc_ids"] = selected_doc_ids
+
+                    resp = requests.post(
+                        f"{API_URL}/ask",
+                        json=payload,
+                        timeout=600,
+                    )
+                    stop_placeholder.empty()  # remove stop button after response
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        answer = data["answer"]
+                        st.markdown(answer)
+                        if data.get("context_chunks"):
+                            with st.expander("Retrieved context"):
+                                for i, chunk in enumerate(data["context_chunks"], 1):
+                                    st.markdown(f"**Chunk {i}:**\n{chunk}")
+                                    st.divider()
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": answer,
+                            "context": data.get("context_chunks", []),
+                        })
+                    else:
+                        try:
+                            err = resp.json().get("detail", resp.text)
+                        except requests.exceptions.JSONDecodeError:
+                            err = resp.text or f"Server error (status {resp.status_code})"
+                        st.error(f"Error: {err}")
+                except requests.exceptions.ReadTimeout:
+                    stop_placeholder.empty()
+                    st.error(
+                        "The model took too long to respond (timeout). Running AI models on a CPU can be slow. "
+                        "Try asking a simpler question, or run the application in GPU mode if you have an NVIDIA graphics card."
+                    )
+                except requests.ConnectionError:
+                    stop_placeholder.empty()
+                    st.error(
+                        "Could not reach the API. Make sure the FastAPI server "
+                        "is running:  python -m uvicorn app.main:app --port 8000"
+                    )
+

@@ -5,20 +5,9 @@
 # we pulled from the vector store). If there's no context, we just tell the
 # user to upload something first.
 #
-# qwen3 has this quirk where it wraps its internal reasoning in <think> tags.
-# We strip those out so the user only sees the actual answer.
-
-import re
-
-# llm.py
-# Handles talking to the Ollama LLM and getting answers back.
-#
-# The prompt tells the model to only use the context we give it (the chunks
-# we pulled from the vector store). If there's no context, we just tell the
-# user to upload something first.
-#
-# qwen3 has this quirk where it wraps its internal reasoning in <think> tags.
-# We strip those out so the user only sees the actual answer.
+# We append /no_think to prompts sent to qwen3 models to disable their
+# internal chain-of-thought mode, which can sometimes swallow the answer.
+# For non-qwen3 models, we still strip any <think> tags as a safety net.
 
 import re
 
@@ -44,7 +33,7 @@ Answer:"""
 
 
 def _strip_thinking_tags(text: str) -> str:
-    # qwen3 sometimes dumps its chain-of-thought in <think>...</think> blocks
+    # some models dump chain-of-thought in <think>...</think> blocks
     # we don't want the user to see that, so strip it out
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
@@ -75,5 +64,19 @@ def generate_answer(context: str, question: str, model_name: str = LLM_MODEL) ->
     else:
         prompt = RAG_PROMPT_TEMPLATE.format(context=context, question=question)
 
+    # for qwen3 models, append /no_think to disable internal chain-of-thought
+    # this prevents the model from hiding its answer inside <think> tags
+    if "qwen3" in model_name.lower():
+        prompt += " /no_think"
+
     response = llm.invoke(prompt)
-    return _strip_thinking_tags(response.content)
+    answer = _strip_thinking_tags(response.content)
+
+    # safety net: if stripping left us with nothing, return a fallback
+    if not answer:
+        answer = (
+            "I found relevant context from your documents but couldn't "
+            "generate a clear answer. Please try rephrasing your question."
+        )
+
+    return answer
