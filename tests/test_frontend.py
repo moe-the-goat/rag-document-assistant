@@ -15,5 +15,5 @@ def test_frontend_html_structure():
         content = f.read()
 
     assert "<!DOCTYPE html>" in content
-    assert "Gemini Assistant" in content
+    assert "Nexus AI" in content
     assert "Ask something about your documents..." in content
