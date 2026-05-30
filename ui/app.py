@@ -53,6 +53,10 @@ with st.sidebar:
                     )
                 else:
                     st.error(f"Error: {resp.json().get('detail', resp.text)}")
+            except requests.exceptions.ReadTimeout:
+                st.error(
+                    "The request timed out. If you are running on a CPU, processing large documents can take several minutes."
+                )
             except requests.ConnectionError:
                 st.error(
                     "Could not reach the API. "
@@ -112,7 +116,7 @@ if question := st.chat_input("Ask something about your documents..."):
                 resp = requests.post(
                     f"{API_URL}/ask",
                     json={"question": question},
-                    timeout=120,
+                    timeout=600,
                 )
                 if resp.status_code == 200:
                     data = resp.json()
@@ -130,6 +134,11 @@ if question := st.chat_input("Ask something about your documents..."):
                 else:
                     err = resp.json().get("detail", resp.text)
                     st.error(f"Error: {err}")
+            except requests.exceptions.ReadTimeout:
+                st.error(
+                    "The model took too long to respond (timeout). Running AI models on a CPU can be slow. "
+                    "Try asking a simpler question, or run the application in GPU mode if you have an NVIDIA graphics card."
+                )
             except requests.ConnectionError:
                 st.error(
                     "Could not reach the API. Make sure the FastAPI server "
