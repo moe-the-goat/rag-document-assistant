@@ -16,4 +16,4 @@ def test_frontend_html_structure():
 
     assert "<!DOCTYPE html>" in content
     assert "Nexus AI" in content
-    assert "Ask something about your documents..." in content
+    assert "Ask Nexus AI..." in content

@@ -30,18 +30,8 @@
                 </section>
 
                 <section class="sidebar-section">
-                    <h3>Document Upload</h3>
-                    <div class="upload-container">
-                        <input type="file" id="file-input" accept=".pdf,.txt,.docx,.md,.html" style="display:none">
-                        <button id="upload-btn" class="btn secondary-btn" onclick="document.getElementById('file-input').click()">
-                            <span class="icon">📄</span> Choose File
-                        </button>
-                        <div id="upload-status" class="status-text"></div>
-                    </div>
-                </section>
-
-                <section class="sidebar-section">
                     <h3>Library</h3>
+                    <div id="upload-status" class="status-text" style="margin-bottom: 8px;"></div>
                     <div id="document-library" class="list-container">
                         <!-- Docs injected here -->
                     </div>
@@ -49,10 +39,7 @@
             </div>
 
             <div class="sidebar-footer">
-                <select id="model-select" class="custom-select">
-                    <option value="qwen2.5:latest">qwen2.5:latest (Recommended)</option>
-                    <option value="qwen3:4b">qwen3:4b (Fast)</option>
-                </select>
+                <!-- Settings or other footer items can go here -->
             </div>
         </aside>
 
@@ -78,14 +65,26 @@
             </div>
 
             <div class="input-area-wrapper">
+                <input type="file" id="file-input" accept=".pdf,.txt,.docx,.md,.html" style="display:none">
                 <div class="input-container">
-                    <textarea id="chat-input" placeholder="Ask something about your documents..." rows="1"></textarea>
+                    <button id="upload-plus-btn" class="btn icon-btn" title="Upload Document" onclick="document.getElementById('file-input').click()">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                    <textarea id="chat-input" placeholder="Ask Nexus AI..." rows="1"></textarea>
                     <button id="send-btn" class="btn icon-btn send-btn" disabled>
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                     </button>
                 </div>
-                <div class="footer-text">
-                    Answers are generated locally. All data stays on your machine.
+                <div class="input-footer">
+                    <div class="footer-text">
+                        Answers are generated locally. All data stays on your machine.
+                    </div>
+                    <div class="model-selector-pill">
+                        <select id="model-select" class="pill-select">
+                            <option value="qwen2.5:latest">qwen2.5:latest</option>
+                            <option value="qwen3:4b">qwen3:4b</option>
+                        </select>
+                    </div>
                 </div>
             </div>
         </main>
