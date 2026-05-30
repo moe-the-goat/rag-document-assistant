@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # This entrypoint starts the server in the background, waits a few seconds, 
+    # pulls the necessary models, and then waits for the server process to keep the container alive.
+    entrypoint: [ "sh", "-c", "ollama serve & sleep 5 && ollama pull qwen3:4b && ollama pull nomic-embed-text && wait" ]
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: document-assistant-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      # Mount the data folder so uploaded PDFs and the FAISS index persist
+      - ./data:/app/data
+    depends_on:
+      - ollama
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: document-assistant-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://backend:8000
+    depends_on:
+      - backend
+
+volumes:
+  ollama_data:

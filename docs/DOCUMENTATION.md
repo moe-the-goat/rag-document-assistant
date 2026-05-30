@@ -426,5 +426,5 @@ Suppose a user uploads a 10-page PDF about climate change and then asks:
 - Switch to an approximate nearest-neighbour index (e.g. IVF) for better
   performance at larger scales.
 - Add authentication to the API.
-- Containerise the application with Docker for easier deployment.
 - Add automated tests for each module.
+- Add a dropdown to the Streamlit UI to dynamically switch between downloaded Ollama models via the backend.

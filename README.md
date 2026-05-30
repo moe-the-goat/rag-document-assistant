@@ -129,7 +129,9 @@ No external API keys or paid services are required.
 
 ---
 
-## Installation
+## Installation & Running the Application
+
+This project is fully containerised using Docker. You do not need to install Python or Ollama manually; everything is handled by Docker Compose.
 
 ### 1. Clone the repository
 
@@ -138,50 +140,29 @@ git clone <repository-url>
 cd "AI Document Assistant using Retrieval-Augmented"
 ```
 
-### 2. Install Python dependencies
+### 2. Choose your execution mode
 
+**Option A: CPU Mode (Works on all machines - Windows, Mac, Linux)**
+Run this command if you do not have an NVIDIA GPU, or if you are using a Mac:
 ```bash
-pip install -r requirements.txt
+docker-compose up --build
+```
+*Note: The first time you run this, it will take several minutes to download the AI models (`qwen3:4b` and `nomic-embed-text`).*
+
+**Option B: GPU Mode (For Windows/Linux with NVIDIA GPUs)**
+If you have an NVIDIA GPU and the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed, run this to unlock hardware acceleration for much faster responses:
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
 ```
 
-### 3. Pull the required Ollama models
+### 3. Using the application
 
-```bash
-ollama pull qwen3:4b
-ollama pull nomic-embed-text
-```
-
----
-
-## Running the Application
-
-You need two terminal windows: one for the backend, one for the frontend.
-
-### Terminal 1 -- FastAPI backend
-
-```bash
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-The API will be available at **http://localhost:8000**.
-Interactive Swagger documentation is at **http://localhost:8000/docs**.
-
-### Terminal 2 -- Streamlit frontend
-
-```bash
-python -m streamlit run ui/app.py
-```
-
-The UI will open in your browser at **http://localhost:8501**.
-
-### Using the application
-
-1. Open http://localhost:8501 in your browser.
-2. Use the sidebar on the left to upload a PDF or TXT file and click
-   **Ingest Document**.
-3. Once the document is processed, type a question in the chat box at the
-   bottom.
-4. The system will retrieve relevant passages and generate an answer.
+1. Wait for the containers to start and the models to finish downloading (you will see 'success' in the docker logs).
+2. Open your browser and navigate to **http://localhost:8501** for the Streamlit UI.
+3. The API documentation is available at **http://localhost:8000/docs**.
+4. Use the sidebar on the left of the UI to upload a PDF or TXT file and click **Ingest Document**.
+5. Once the document is processed, type a question in the chat box at the bottom.
+6. The system will retrieve relevant passages and generate an answer.
 
 ---
 

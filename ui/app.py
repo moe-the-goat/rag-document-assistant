@@ -5,10 +5,11 @@
 # To run:  python -m streamlit run ui/app.py
 # (make sure the backend is already running on port 8000)
 
+import os
 import streamlit as st
 import requests
 
-API_URL = "http://localhost:8000"
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 # -- page setup --
 
