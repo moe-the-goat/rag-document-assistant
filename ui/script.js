@@ -59,6 +59,7 @@ newChatBtn.addEventListener('click', () => {
     messagesContainer.innerHTML = '';
     messagesContainer.appendChild(welcomeScreen);
     welcomeScreen.style.display = 'block';
+    document.querySelector('.chat-area').classList.add('chat-empty');
     loadConversations();
 });
 
@@ -158,8 +159,13 @@ async function selectConversation(id, title) {
     try {
         const res = await fetch(`/conversations/${id}`);
         const data = await res.json();
-        if (data.messages) {
+        if (data.messages && data.messages.length > 0) {
+            document.querySelector('.chat-area').classList.remove('chat-empty');
             data.messages.forEach(m => appendMessage(m.role, m.content, m.context_chunks));
+        } else {
+            welcomeScreen.style.display = 'block';
+            messagesContainer.appendChild(welcomeScreen);
+            document.querySelector('.chat-area').classList.add('chat-empty');
         }
     } catch (e) { console.error('Failed to load messages', e); }
 }
@@ -190,6 +196,7 @@ window.deleteDocument = async (id) => {
 
 function appendMessage(role, content, contextChunks = []) {
     welcomeScreen.style.display = 'none';
+    document.querySelector('.chat-area').classList.remove('chat-empty');
     const wrapper = document.createElement('div');
     wrapper.className = `message-wrapper ${role}`;
 

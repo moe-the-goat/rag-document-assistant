@@ -345,6 +345,16 @@ body {
     margin: 0 auto;
 }
 
+.chat-area.chat-empty .messages-container {
+    margin-top: auto;
+    flex-grow: 0;
+    padding-bottom: 32px;
+}
+
+.chat-area.chat-empty .input-area-wrapper {
+    margin-bottom: auto;
+}
+
 .input-container {
     background-color: var(--bg-chat);
     border-radius: 32px;
@@ -385,9 +395,10 @@ body {
 
 .input-footer {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
-    margin-top: 12px;
+    padding: 0 24px 16px;
+    width: 100%;
 }
 
 .footer-text {
