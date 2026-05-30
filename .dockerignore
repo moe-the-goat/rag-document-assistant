@@ -1,0 +1,26 @@
+# .dockerignore
+# Exclude git history and configuration
+.git/
+.gitignore
+
+# Exclude virtual environments
+venv/
+env/
+.env
+
+# Exclude python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Exclude runtime data so we don't accidentally bake uploaded files into the image
+data/uploads/
+data/vector_db/
+
+# Exclude IDE configurations
+.vscode/
+.idea/
+
+# Exclude the project spec pdf
+rag_ai_document_assistant_project_spec.pdf
+streamlit UI.png
