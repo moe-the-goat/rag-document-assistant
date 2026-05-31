@@ -39,7 +39,9 @@
             </div>
 
             <div class="sidebar-footer">
-                <!-- Settings or other footer items can go here -->
+                <button id="settings-btn" class="btn icon-btn" title="Settings">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </button>
             </div>
         </aside>
 
@@ -55,6 +57,22 @@
                     <div class="text-group">
                         <h1 class="brand-name">Nexus AI</h1>
                         <p class="conversation-status" id="current-chat-title">New Conversation</p>
+                    </div>
+                </div>
+                <div class="header-actions" style="margin-left: auto;">
+                    <div class="export-dropdown-container">
+                        <button id="export-btn" class="btn secondary-btn" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 8px; display: flex; align-items: center; gap: 6px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Export
+                        </button>
+                        <div id="export-dropdown" class="custom-dropdown" style="min-width: 150px; right: 0;">
+                            <div class="dropdown-item" id="export-md-btn">
+                                <div class="dropdown-title">Markdown (.md)</div>
+                            </div>
+                            <div class="dropdown-item" id="export-pdf-btn">
+                                <div class="dropdown-title">PDF (.pdf)</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -99,11 +117,31 @@
                     Answers are generated locally. All data stays on your machine.
                 </div>
             </div>
+
+            <!-- Settings Modal -->
+            <div id="settings-modal" class="modal-overlay" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Settings</h2>
+                        <button id="close-settings-btn" class="btn icon-btn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="settings-group danger-zone">
+                            <h3>Danger Zone</h3>
+                            <p class="settings-desc">This action cannot be undone. All your chat history will be permanently deleted.</p>
+                            <button id="clear-all-chats-btn" class="btn danger-btn">Clear All Conversations</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

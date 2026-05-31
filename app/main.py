@@ -328,6 +328,14 @@ def delete_conversation(conversation_id: str):
     return {"message": "Conversation deleted."}
 
 
+@app.delete("/conversations", tags=["Conversations"],
+            dependencies=[Depends(require_auth)])
+def clear_all_conversations():
+    conv.clear_all_conversations()
+    logger.info("All conversations deleted.")
+    return {"message": "All conversations deleted."}
+
+
 # -- routes: models ----------------------------------------------------------
 
 @app.get("/models", response_model=list[str], tags=["Models"])

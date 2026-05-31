@@ -19,6 +19,16 @@ const messagesContainer = document.getElementById('messages-container');
 const welcomeScreen = document.getElementById('welcome-screen');
 const currentChatTitle = document.getElementById('current-chat-title');
 
+const settingsBtn = document.getElementById('settings-btn');
+const settingsModal = document.getElementById('settings-modal');
+const closeSettingsBtn = document.getElementById('close-settings-btn');
+const clearAllChatsBtn = document.getElementById('clear-all-chats-btn');
+
+const exportBtn = document.getElementById('export-btn');
+const exportDropdown = document.getElementById('export-dropdown');
+const exportMdBtn = document.getElementById('export-md-btn');
+const exportPdfBtn = document.getElementById('export-pdf-btn');
+
 // Initialize Marked with highlight.js
 marked.setOptions({
     highlight: function(code, lang) {
@@ -62,6 +72,77 @@ openSidebarBtn.addEventListener('click', () => {
     sidebar.classList.remove('closed');
     openSidebarBtn.style.display = 'none';
 });
+
+// Settings Modal
+settingsBtn.addEventListener('click', () => settingsModal.style.display = 'flex');
+closeSettingsBtn.addEventListener('click', () => settingsModal.style.display = 'none');
+settingsModal.addEventListener('click', (e) => {
+    if (e.target === settingsModal) settingsModal.style.display = 'none';
+});
+
+clearAllChatsBtn.addEventListener('click', async () => {
+    if (confirm('Are you sure you want to delete all conversations? This cannot be undone.')) {
+        await fetch('/conversations', { method: 'DELETE' });
+        settingsModal.style.display = 'none';
+        newChatBtn.click();
+    }
+});
+
+// Export Dropdown
+exportBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    exportDropdown.classList.toggle('show');
+});
+document.addEventListener('click', (e) => {
+    if (!exportDropdown.contains(e.target) && !exportBtn.contains(e.target)) {
+        exportDropdown.classList.remove('show');
+    }
+});
+
+exportMdBtn.addEventListener('click', async () => {
+    exportDropdown.classList.remove('show');
+    if (!currentConversationId) return showToast('No conversation to export', 'error');
+
+    try {
+        const res = await fetch(`/conversations/${currentConversationId}`);
+        const data = await res.json();
+        if (!data.messages) return;
+
+        let mdContent = `# ${data.title}\n\n`;
+        data.messages.forEach(m => {
+            mdContent += `### ${m.role === 'user' ? 'User' : 'Nexus AI'}\n${m.content}\n\n`;
+        });
+
+        const blob = new Blob([mdContent], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${data.title.replace(/[^a-z0-9]/gi, '_')}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        showToast('Failed to export markdown', 'error');
+    }
+});
+
+exportPdfBtn.addEventListener('click', () => {
+    exportDropdown.classList.remove('show');
+    if (!currentConversationId || document.querySelector('.chat-empty')) return showToast('No conversation to export', 'error');
+
+    const element = document.getElementById('messages-container');
+    const opt = {
+        margin:       10,
+        filename:     `${currentChatTitle.textContent.replace(/[^a-z0-9]/gi, '_')}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, logging: false },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    showToast('Generating PDF...', 'info');
+    html2pdf().set(opt).from(element).save().then(() => {
+        showToast('PDF Exported successfully', 'success');
+    });
+});
+
 
 // Textarea auto-resize and send button state
 chatInput.addEventListener('input', function() {
@@ -158,9 +239,50 @@ async function loadConversations() {
             titleSpan.style.overflow = 'hidden';
             titleSpan.style.textOverflow = 'ellipsis';
 
-            const delBtn = document.createElement('span');
-            delBtn.innerHTML = '🗑️';
-            delBtn.style.cursor = 'pointer';
+            const titleInput = document.createElement('input');
+            titleInput.type = 'text';
+            titleInput.className = 'conv-title-input';
+            titleInput.value = c.title;
+            titleInput.style.display = 'none';
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'conv-actions';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'btn icon-btn';
+            editBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn icon-btn';
+            delBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+
+            editBtn.onclick = (e) => {
+                e.stopPropagation();
+                titleSpan.style.display = 'none';
+                actionsDiv.style.display = 'none';
+                titleInput.style.display = 'block';
+                titleInput.focus();
+            };
+
+            const saveRename = async () => {
+                const newTitle = titleInput.value.trim();
+                if (newTitle && newTitle !== c.title) {
+                    await fetch(`/conversations/${c.conversation_id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title: newTitle })
+                    });
+                    if (c.conversation_id === currentConversationId) currentChatTitle.textContent = newTitle;
+                }
+                loadConversations();
+            };
+
+            titleInput.onblur = saveRename;
+            titleInput.onkeydown = (e) => {
+                if (e.key === 'Enter') saveRename();
+                if (e.key === 'Escape') loadConversations();
+            };
+
             delBtn.onclick = async (e) => {
                 e.stopPropagation();
                 await fetch(`/conversations/${c.conversation_id}`, { method: 'DELETE' });
@@ -168,9 +290,15 @@ async function loadConversations() {
                 else loadConversations();
             };
 
+            actionsDiv.appendChild(editBtn);
+            actionsDiv.appendChild(delBtn);
+
             div.appendChild(titleSpan);
-            div.appendChild(delBtn);
-            div.onclick = () => selectConversation(c.conversation_id, c.title);
+            div.appendChild(titleInput);
+            div.appendChild(actionsDiv);
+            div.onclick = () => {
+                if (titleInput.style.display !== 'block') selectConversation(c.conversation_id, c.title);
+            };
             conversationsList.appendChild(div);
         });
     } catch (e) { console.error('Failed to load conversations', e); }
@@ -233,6 +361,7 @@ function appendMessage(role, content, contextChunks = []) {
     if (role === 'ai') {
         renderStreamingContent(content, bubble);
         attachContextChunks(bubble, contextChunks);
+        attachCopyButtons(bubble, content);
     } else {
         bubble.textContent = content;
     }
@@ -328,6 +457,48 @@ function attachContextChunks(bubble, contextChunks) {
     bubble.appendChild(ctxContent);
 }
 
+function attachCopyButtons(bubble, rawText) {
+    // Add copy code buttons to pre blocks
+    const preBlocks = bubble.querySelectorAll('pre');
+    preBlocks.forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'copy-code-btn';
+        btn.textContent = 'Copy code';
+        btn.onclick = () => {
+            const code = pre.querySelector('code');
+            navigator.clipboard.writeText(code ? code.innerText : pre.innerText);
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy code', 2000);
+        };
+        pre.appendChild(btn);
+    });
+
+    // Add copy answer button at the bottom
+    const copyAnsBtn = document.createElement('button');
+    copyAnsBtn.className = 'copy-answer-btn';
+    copyAnsBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy answer';
+
+    // Extract actual answer without think tags for copying
+    let cleanText = rawText;
+    const thinkStart = rawText.indexOf('<think>');
+    const thinkEnd = rawText.indexOf('</think>');
+    if (thinkStart !== -1 && thinkEnd !== -1) {
+        cleanText = rawText.substring(0, thinkStart) + rawText.substring(thinkEnd + 8);
+    } else if (thinkStart !== -1) {
+        cleanText = rawText.substring(0, thinkStart);
+    }
+
+    copyAnsBtn.onclick = () => {
+        navigator.clipboard.writeText(cleanText.trim());
+        copyAnsBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!';
+        setTimeout(() => {
+            copyAnsBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy answer';
+        }, 2000);
+    };
+    bubble.appendChild(copyAnsBtn);
+}
+
+
 async function sendMessage() {
     const text = chatInput.value.trim();
     if (!text) return;
@@ -408,6 +579,7 @@ async function sendMessage() {
         }
 
         attachContextChunks(bubble, contextChunks);
+        attachCopyButtons(bubble, fullAnswer);
 
     } catch (e) {
         bubble.innerHTML = marked.parse(`**Error:** Could not reach the server.`);
