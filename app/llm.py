@@ -35,7 +35,9 @@ Rules:
 - Ground your answers in the document content — don't invent facts \
 that aren't supported by the text
 - When making inferences, clearly state that you're inferring
-- Match the language of the user's question in your response"""
+- Match the language of the user's question in your response
+- CRITICAL: You MUST cite your sources! The context provided below includes chunks marked with [Source X: filename]. Whenever you use information from a chunk, you must append a citation marker like [^X] to your sentence (where X is the source number).
+- Do NOT explicitly write out "[Source X: filename]" in your response text. Only use the [^X] numerical markers."""
 
 
 USER_PROMPT_TEMPLATE = """\
@@ -53,6 +55,19 @@ The user asked a question but no relevant documents have been uploaded yet. \
 Let them know they need to upload documents first, and be helpful about it.
 
 Question: {question}"""
+
+
+# Regex to match [Source X: filename] patterns the LLM sometimes copies
+# from the context chunks into its answer despite being told not to.
+_SOURCE_LABEL_RE = re.compile(
+    r"\[Source\s+\d+\s*:\s*[^\]]*\]",
+    re.IGNORECASE,
+)
+
+
+def _strip_source_labels(text: str) -> str:
+    """Remove any [Source X: filename] labels the LLM leaked into its answer."""
+    return _SOURCE_LABEL_RE.sub("", text)
 
 
 def _clean_response(text: str) -> str:
@@ -131,7 +146,7 @@ def generate_answer(context: str, question: str, model_name: str = LLM_MODEL) ->
     ]
 
     response = llm.invoke(messages)
-    answer = _clean_response(response.content)
+    answer = _strip_source_labels(_clean_response(response.content))
 
     if not answer:
         answer = (
@@ -166,6 +181,24 @@ def generate_answer_stream(context: str, question: str, model_name: str = LLM_MO
         HumanMessage(content=user_content),
     ]
 
+    # Simple buffer: hold back text only when there's an unclosed '['
+    # that might be the start of a [Source X: ...] label spanning chunks.
+    buffer = ""
     for chunk in llm.stream(messages):
         if chunk.content:
-            yield chunk.content
+            buffer += chunk.content
+            # Check for an unclosed '[' that could be a partial [Source ...]
+            last_open = buffer.rfind("[")
+            if last_open != -1 and buffer.find("]", last_open) == -1:
+                # Unclosed bracket — flush everything before it, hold the rest
+                safe = buffer[:last_open]
+                if safe:
+                    yield _strip_source_labels(safe)
+                buffer = buffer[last_open:]
+            else:
+                # All brackets are closed — safe to flush everything
+                yield _strip_source_labels(buffer)
+                buffer = ""
+    # Flush any remaining buffer at end of stream
+    if buffer:
+        yield _strip_source_labels(buffer)

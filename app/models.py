@@ -3,6 +3,7 @@
 # Keeping these separate from main.py so things stay organized
 # and we can import them from other places without pulling in FastAPI.
 
+from typing import Any
 from pydantic import BaseModel
 
 
@@ -60,7 +61,7 @@ class MessageInfo(BaseModel):
     conversation_id: str
     role: str
     content: str
-    context_chunks: list[str] = []
+    context_chunks: list[Any] = []
     model_used: str = ""
     timestamp: str
 
