@@ -17,20 +17,22 @@ import uuid
 import requests as http_requests
 from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+import json
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from app.config import UPLOADS_DIR, OLLAMA_BASE_URL, RATE_LIMIT, LOG_LEVEL
 from app.models import (
-    QuestionRequest, AnswerResponse, UploadResponse,
+    QuestionRequest, UploadResponse,
     StatusResponse, DocumentInfo, ConversationInfo,
     ConversationDetail, MessageInfo, RenameRequest,
 )
 from app.ingestion import ingest_document
 from app.vector_store import VectorStore
 from app.retrieval import retrieve_context
-from app.llm import generate_answer
+from app.llm import generate_answer_stream
 from app import document_registry as registry
 from app import conversation as conv
 from app.auth import require_auth
@@ -207,7 +209,7 @@ def delete_document(doc_id: str):
 
 # -- routes: Q&A (auth + rate limit) ----------------------------------------
 
-@app.post("/ask", response_model=AnswerResponse, tags=["Q&A"],
+@app.post("/ask", tags=["Q&A"],
           dependencies=[Depends(require_auth)])
 @limiter.limit(RATE_LIMIT)
 def ask_question(request: Request, req: QuestionRequest):
@@ -237,27 +239,33 @@ def ask_question(request: Request, req: QuestionRequest):
     context, context_chunks = retrieve_context(
         vector_store, question, doc_ids=req.doc_ids,
     )
-    answer = generate_answer(context, question, req.model)
 
-    # save assistant message
-    conv.add_message(
-        conversation_id=conversation_id,
-        role="assistant",
-        content=answer,
-        context_chunks=context_chunks,
-        model_used=req.model,
-    )
+    def event_stream():
+        # First yield the conversation_id and context_chunks so the UI can update immediately
+        init_data = {
+            "conversation_id": conversation_id,
+            "context_chunks": context_chunks,
+        }
+        yield f"data: {json.dumps(init_data)}\n\n"
 
-    logger.info(
-        f"Question answered: '{question[:50]}...' "
-        f"(model={req.model}, chunks={len(context_chunks)})"
-    )
+        full_answer = ""
+        for chunk in generate_answer_stream(context, question, req.model):
+            full_answer += chunk
+            yield f"data: {json.dumps({'chunk': chunk})}\n\n"
 
-    return AnswerResponse(
-        answer=answer,
-        context_chunks=context_chunks,
-        conversation_id=conversation_id,
-    )
+        # After the stream finishes, save the assistant message
+        conv.add_message(
+            conversation_id=conversation_id,
+            role="assistant",
+            content=full_answer,
+            context_chunks=context_chunks,
+            model_used=req.model,
+        )
+
+        # Signal completion
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 # -- routes: conversations (auth required) -----------------------------------

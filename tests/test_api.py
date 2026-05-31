@@ -49,9 +49,8 @@ def test_ask_question(test_client, mock_vector_store, mock_llm):
     response = test_client.post("/ask", json=payload)
 
     assert response.status_code == 200
-    data = response.json()
-    assert data["answer"] == "This is a mocked answer from the AI."
-    assert "conversation_id" in data
+    assert "This is a mocked answer from the AI." in response.text
+    assert "conversation_id" in response.text
 
 def test_rate_limiting(test_client, mock_vector_store, mock_llm):
     # We will spam the /ask endpoint to trigger 429 Too Many Requests

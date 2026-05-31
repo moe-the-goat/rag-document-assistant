@@ -82,7 +82,7 @@ def mock_embeddings():
 @pytest.fixture
 def mock_llm():
     """Mock the LLM generation and embedding to run instantly without Ollama."""
-    with patch("app.main.generate_answer", return_value="This is a mocked answer from the AI.") as mock_gen, \
+    with patch("app.main.generate_answer_stream", return_value=["This is a mocked answer from the AI."]) as mock_gen, \
          patch("app.main.retrieve_context", return_value=("Mocked context.", ["Mocked context."])) as mock_ret, \
          patch("app.main.ingest_document", return_value=["Mock chunk"] * 5) as mock_ingest:
         yield {

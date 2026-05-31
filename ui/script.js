@@ -231,23 +231,8 @@ function appendMessage(role, content, contextChunks = []) {
     bubble.className = `bubble ${role}`;
 
     if (role === 'ai') {
-        bubble.innerHTML = marked.parse(content);
-        if (contextChunks && contextChunks.length > 0) {
-            const ctxToggle = document.createElement('div');
-            ctxToggle.className = 'context-toggle';
-            ctxToggle.innerHTML = '🔍 View Context Source';
-
-            const ctxContent = document.createElement('div');
-            ctxContent.className = 'context-content';
-            ctxContent.textContent = contextChunks.join('\n\n---\n\n');
-
-            ctxToggle.onclick = () => {
-                ctxContent.style.display = ctxContent.style.display === 'block' ? 'none' : 'block';
-            };
-
-            bubble.appendChild(ctxToggle);
-            bubble.appendChild(ctxContent);
-        }
+        renderStreamingContent(content, bubble);
+        attachContextChunks(bubble, contextChunks);
     } else {
         bubble.textContent = content;
     }
@@ -277,6 +262,72 @@ function hideTyping() {
     if (el) el.remove();
 }
 
+function createStreamingBubble() {
+    welcomeScreen.style.display = 'none';
+    document.querySelector('.chat-area').classList.remove('chat-empty');
+
+    const wrapper = document.createElement('div');
+    wrapper.className = `message-wrapper ai`;
+
+    const bubble = document.createElement('div');
+    bubble.className = `bubble ai`;
+
+    wrapper.appendChild(bubble);
+    messagesContainer.appendChild(wrapper);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    return { wrapper, bubble };
+}
+
+function renderStreamingContent(rawText, container) {
+    let html = "";
+    let mainText = rawText;
+
+    const thinkStart = rawText.indexOf('<think>');
+    if (thinkStart !== -1) {
+        const thinkEnd = rawText.indexOf('</think>');
+        let thinkContent = "";
+        let isClosed = false;
+
+        if (thinkEnd !== -1) {
+            thinkContent = rawText.substring(thinkStart + 7, thinkEnd);
+            mainText = rawText.substring(0, thinkStart) + rawText.substring(thinkEnd + 8);
+            isClosed = true;
+        } else {
+            thinkContent = rawText.substring(thinkStart + 7);
+            mainText = rawText.substring(0, thinkStart);
+            isClosed = false;
+        }
+
+        let summaryText = isClosed ? "💡 Thought Process" : "🧠 Thinking...";
+        html += `<details class="think-block" ${isClosed ? '' : 'open'}>
+                    <summary>${summaryText}</summary>
+                    <div class="think-content">${marked.parse(thinkContent)}</div>
+                 </details>`;
+    }
+
+    html += marked.parse(mainText);
+    container.innerHTML = html;
+}
+
+function attachContextChunks(bubble, contextChunks) {
+    if (!contextChunks || contextChunks.length === 0) return;
+    const ctxToggle = document.createElement('div');
+    ctxToggle.className = 'context-toggle';
+    ctxToggle.innerHTML = '🔍 View Context Source';
+
+    const ctxContent = document.createElement('div');
+    ctxContent.className = 'context-content';
+    ctxContent.textContent = contextChunks.join('\n\n---\n\n');
+
+    ctxToggle.onclick = () => {
+        ctxContent.style.display = ctxContent.style.display === 'block' ? 'none' : 'block';
+    };
+
+    bubble.appendChild(ctxToggle);
+    bubble.appendChild(ctxContent);
+}
+
 async function sendMessage() {
     const text = chatInput.value.trim();
     if (!text) return;
@@ -286,13 +337,14 @@ async function sendMessage() {
     chatInput.style.height = 'auto';
     sendBtn.disabled = true;
 
-    showTyping();
-
     const payload = {
         question: text,
         model: currentModel
     };
     if (currentConversationId) payload.conversation_id = currentConversationId;
+
+    const { bubble } = createStreamingBubble();
+    bubble.innerHTML = '<div class="typing-indicator" style="padding: 0;"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
 
     try {
         const res = await fetch('/ask', {
@@ -301,22 +353,55 @@ async function sendMessage() {
             body: JSON.stringify(payload)
         });
 
-        hideTyping();
-
-        if (res.ok) {
-            const data = await res.json();
-            if (data.conversation_id && !currentConversationId) {
-                currentConversationId = data.conversation_id;
-                loadConversations();
-            }
-            appendMessage('ai', data.answer, data.context_chunks);
-        } else {
+        if (!res.ok) {
             const err = await res.json();
-            appendMessage('ai', `**Error:** ${err.detail || 'Failed to get answer.'}`);
+            bubble.innerHTML = marked.parse(`**Error:** ${err.detail || 'Failed to get answer.'}`);
+            return;
         }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let fullAnswer = "";
+        let contextChunks = [];
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunkStr = decoder.decode(value, { stream: true });
+            const events = chunkStr.split('\n\n');
+
+            for (const event of events) {
+                if (!event.trim()) continue;
+                if (event.startsWith('data: ')) {
+                    const dataStr = event.substring(6);
+                    if (dataStr === '[DONE]') break;
+
+                    try {
+                        const data = JSON.parse(dataStr);
+                        if (data.conversation_id && !currentConversationId) {
+                            currentConversationId = data.conversation_id;
+                            loadConversations();
+                        }
+                        if (data.context_chunks) {
+                            contextChunks = data.context_chunks;
+                        }
+                        if (data.chunk) {
+                            fullAnswer += data.chunk;
+                            renderStreamingContent(fullAnswer, bubble);
+                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        }
+                    } catch (e) {
+                        console.error("Parse error", e);
+                    }
+                }
+            }
+        }
+
+        attachContextChunks(bubble, contextChunks);
+
     } catch (e) {
-        hideTyping();
-        appendMessage('ai', `**Error:** Could not reach the server.`);
+        bubble.innerHTML = marked.parse(`**Error:** Could not reach the server.`);
     }
 }
 

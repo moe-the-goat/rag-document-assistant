@@ -142,3 +142,30 @@ def generate_answer(context: str, question: str, model_name: str = LLM_MODEL) ->
         )
 
     return answer
+
+def generate_answer_stream(context: str, question: str, model_name: str = LLM_MODEL):
+    """Build a proper system + human message pair and yield the LLM's response chunks."""
+    llm = get_llm(model_name)
+
+    # build the messages list with proper role separation
+    system_content = SYSTEM_PROMPT
+
+    # for qwen3, disable thinking mode to get direct answers
+    if "qwen3" in model_name.lower():
+        system_content += "\n\n/no_think"
+
+    if context:
+        user_content = USER_PROMPT_TEMPLATE.format(
+            context=context, question=question,
+        )
+    else:
+        user_content = NO_CONTEXT_PROMPT.format(question=question)
+
+    messages = [
+        SystemMessage(content=system_content),
+        HumanMessage(content=user_content),
+    ]
+
+    for chunk in llm.stream(messages):
+        if chunk.content:
+            yield chunk.content
