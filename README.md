@@ -1,10 +1,10 @@
-# AI Document Assistant — Retrieval-Augmented Generation (RAG)
+# AI Document Assistant - Retrieval-Augmented Generation (RAG)
 
 ![Nexus AI](Forntier_Image.png)
 
-A local-first, privacy-respecting document intelligence system that lets you upload files, ask questions about them in natural language, and get accurate answers grounded in the actual text — with citations. The entire pipeline runs on your machine. No cloud APIs, no telemetry, no data leaving your network. Ever.
+A local-first, privacy-respecting document intelligence system that lets you upload files, ask questions about them in natural language, and get accurate answers grounded in the actual text - with citations. The entire pipeline runs on your machine. No cloud APIs, no telemetry, no data leaving your network. Ever.
 
-The system exists because the obvious alternative — pasting sensitive documents into ChatGPT or Claude and hoping the provider keeps its privacy promises — is not acceptable when the documents contain CVs, contracts, medical records, internal reports, or anything you would not email to a stranger. I built something that gives you the same conversational document understanding, but where "private" is a verifiable architectural property, not a policy checkbox.
+The system exists because the obvious alternative - pasting sensitive documents into ChatGPT or Claude and hoping the provider keeps its privacy promises - is not acceptable when the documents contain CVs, contracts, medical records, internal reports, or anything you would not email to a stranger. I built something that gives you the same conversational document understanding, but where "private" is a verifiable architectural property, not a policy checkbox.
 
 This repository is what I built.
 
@@ -16,19 +16,19 @@ You start the system with a single `docker compose up`. Three containers come up
 
 Upload a PDF, a Word document, a text file, Markdown, or HTML. The backend parses it, splits it into overlapping text chunks, embeds each chunk into a high-dimensional vector using `nomic-embed-text`, and stores the vectors in a FAISS index alongside a BM25 keyword index. When you ask a question, the system runs both a semantic vector search and a keyword search in parallel, merges the results using Reciprocal Rank Fusion, re-ranks the top candidates with a Cross-Encoder neural model ([`ms-marco-MiniLM-L-6-v2`](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2)), and injects the winning chunks into a prompt sent to the local LLM. The answer streams back token by token, with citation markers that link each claim to the specific source chunk it came from.
 
-Inside, there are twelve modules under [app/](app/), a custom frontend in [ui/](ui/) (HTML/CSS/JS — no framework), two Dockerfiles, an Nginx reverse proxy, and a `docker-compose.yml` that wires the whole thing into a self-managing stack. The rest of this document is a tour of why each piece is shaped the way it is.
+Inside, there are twelve modules under [app/](app/), a custom frontend in [ui/](ui/) (HTML/CSS/JS - no framework), two Dockerfiles, an Nginx reverse proxy, and a `docker-compose.yml` that wires the whole thing into a self-managing stack. The rest of this document is a tour of why each piece is shaped the way it is.
 
 ---
 
 ## The Problem It Solves
 
-I started this project because I needed to ask questions about my own documents — CVs, project specs, internal reports — and every tool that could do it wanted me to upload those documents to someone else's server.
+I started this project because I needed to ask questions about my own documents - CVs, project specs, internal reports - and every tool that could do it wanted me to upload those documents to someone else's server.
 
 The commercial options are well-known. ChatGPT's file upload feature sends your document to OpenAI's servers. Claude does the same with Anthropic. Google's NotebookLM processes your files on Google's infrastructure. Every one of them has a privacy policy that says some version of "we may use your data to improve our services," and every one of them requires you to trust that policy. For a personal CV, maybe that is fine. For a client contract, a medical record, or a company's internal engineering spec, it is not.
 
-The open-source alternatives were not much better. Most RAG tutorials I found were toy demos — a Jupyter notebook that calls the OpenAI API with a retrieval step bolted on. They solved the "how to do RAG" question but not the "how to do RAG without leaking data" question. The ones that did run locally were research prototypes: no UI, no persistence, no conversation history, no way for a non-technical user to interact with them.
+The open-source alternatives were not much better. Most RAG tutorials I found were toy demos - a Jupyter notebook that calls the OpenAI API with a retrieval step bolted on. They solved the "how to do RAG" question but not the "how to do RAG without leaking data" question. The ones that did run locally were research prototypes: no UI, no persistence, no conversation history, no way for a non-technical user to interact with them.
 
-The system in this repository is the answer to that gap. It runs entirely on your machine — the LLM, the embedding model, the vector store, the database, the frontend, all of it. The Docker network is internal. The Nginx proxy listens on `localhost`. There is no outbound network call at any point in the pipeline. If you disconnect your internet and ask a question, the answer comes back exactly the same.
+The system in this repository is the answer to that gap. It runs entirely on your machine - the LLM, the embedding model, the vector store, the database, the frontend, all of it. The Docker network is internal. The Nginx proxy listens on `localhost`. There is no outbound network call at any point in the pipeline. If you disconnect your internet and ask a question, the answer comes back exactly the same.
 
 That is the core design constraint, and every other decision flows from it.
 
@@ -58,46 +58,46 @@ At the highest level, the system is a five-stage pipeline with a feedback loop t
    (full history saved to SQLite → resumable across sessions)
 ```
 
-Each stage exists because a specific failure mode demanded it. The pipeline is sequential and largely deterministic until the generation step, which is the only place a black-box model gets a voice — and even there, the prompt is structured to force grounded, cited answers.
+Each stage exists because a specific failure mode demanded it. The pipeline is sequential and largely deterministic until the generation step, which is the only place a black-box model gets a voice - and even there, the prompt is structured to force grounded, cited answers.
 
-**Stage 1 — Ingestion.** The user uploads a file through the chat interface. The backend saves it to disk, validates the file type (checking magic bytes, not just the extension), checks for duplicates via SHA-256 hash, and hands it to the ingestion pipeline. [ingestion.py](app/ingestion.py) dispatches to the right parser: PyMuPDF for PDFs, python-docx for Word files, BeautifulSoup for HTML, raw read for plain text and Markdown. The parsed text is split into 1000-character chunks with 200-character overlap using LangChain's `RecursiveCharacterTextSplitter`. The overlap exists so that a sentence straddling a chunk boundary is not lost — a failure mode I observed early on where answers about content near chunk edges were consistently wrong.
+**Stage 1 - Ingestion.** The user uploads a file through the chat interface. The backend saves it to disk, validates the file type (checking magic bytes, not just the extension), checks for duplicates via SHA-256 hash, and hands it to the ingestion pipeline. [ingestion.py](app/ingestion.py) dispatches to the right parser: PyMuPDF for PDFs, python-docx for Word files, BeautifulSoup for HTML, raw read for plain text and Markdown. The parsed text is split into 1000-character chunks with 200-character overlap using LangChain's `RecursiveCharacterTextSplitter`. The overlap exists so that a sentence straddling a chunk boundary is not lost - a failure mode I observed early on where answers about content near chunk edges were consistently wrong.
 
-**Stage 2 — Embedding and indexing.** Each chunk is embedded into a 768-dimensional vector by `nomic-embed-text`, served locally by Ollama. The vectors go into a FAISS `IndexFlatL2` for exact nearest-neighbour search. Simultaneously, the raw chunk text is tokenized and indexed by BM25. Both indices persist to disk, so restarting the system does not require re-embedding. A document registry backed by SQLite ([document_registry.py](app/document_registry.py)) tracks every uploaded file, its hash, its chunk count, and its upload timestamp — so re-uploading the same file is caught and rejected before any compute is wasted.
+**Stage 2 - Embedding and indexing.** Each chunk is embedded into a 768-dimensional vector by `nomic-embed-text`, served locally by Ollama. The vectors go into a FAISS `IndexFlatL2` for exact nearest-neighbour search. Simultaneously, the raw chunk text is tokenized and indexed by BM25. Both indices persist to disk, so restarting the system does not require re-embedding. A document registry backed by SQLite ([document_registry.py](app/document_registry.py)) tracks every uploaded file, its hash, its chunk count, and its upload timestamp - so re-uploading the same file is caught and rejected before any compute is wasted.
 
-**Stage 3 — Hybrid retrieval with re-ranking.** When the user asks a question, the question text is embedded with the same model and also tokenized for BM25. FAISS returns the top `3K` candidates by cosine similarity; BM25 returns the top `3K` candidates by keyword relevance. The two result sets are merged using Reciprocal Rank Fusion, which naturally balances the strengths of both: semantic search catches paraphrased or conceptually similar content, while BM25 catches exact names, dates, and technical terms that embeddings tend to blur. The fused candidates are then re-ranked by a Cross-Encoder model (`ms-marco-MiniLM-L-6-v2` from `sentence-transformers`), which scores each question-chunk pair with a dedicated relevance classifier rather than relying on embedding distance. This second pass dramatically improves precision — in my testing, it consistently promoted the actually-relevant chunk above superficially-similar distractors. The top `K` survivors (default 8) are sent to the next stage.
+**Stage 3 - Hybrid retrieval with re-ranking.** When the user asks a question, the question text is embedded with the same model and also tokenized for BM25. FAISS returns the top `3K` candidates by cosine similarity; BM25 returns the top `3K` candidates by keyword relevance. The two result sets are merged using Reciprocal Rank Fusion, which naturally balances the strengths of both: semantic search catches paraphrased or conceptually similar content, while BM25 catches exact names, dates, and technical terms that embeddings tend to blur. The fused candidates are then re-ranked by a Cross-Encoder model (`ms-marco-MiniLM-L-6-v2` from `sentence-transformers`), which scores each question-chunk pair with a dedicated relevance classifier rather than relying on embedding distance. This second pass dramatically improves precision - in my testing, it consistently promoted the actually-relevant chunk above superficially-similar distractors. The top `K` survivors (default 8) are sent to the next stage.
 
-**Stage 4 — Answer generation with citations.** The winning chunks are formatted with explicit `[Source X: filename]` headers and injected into a structured prompt sent to the local LLM. The system prompt instructs the model to ground every claim in the provided context and cite sources using `[^X]` markers. The response streams back token by token via Server-Sent Events. A post-processing filter in the streaming pipeline strips any `[Source X: filename]` labels the model might copy verbatim from the context (LLMs do this despite being told not to — the filter is deterministic and catches it every time). On the frontend, the `[^X]` markers are rendered as superscript numbers with hover tooltips showing the source filename and an excerpt of the cited text.
+**Stage 4 - Answer generation with citations.** The winning chunks are formatted with explicit `[Source X: filename]` headers and injected into a structured prompt sent to the local LLM. The system prompt instructs the model to ground every claim in the provided context and cite sources using `[^X]` markers. The response streams back token by token via Server-Sent Events. A post-processing filter in the streaming pipeline strips any `[Source X: filename]` labels the model might copy verbatim from the context (LLMs do this despite being told not to - the filter is deterministic and catches it every time). On the frontend, the `[^X]` markers are rendered as superscript numbers with hover tooltips showing the source filename and an excerpt of the cited text.
 
-**Stage 5 — Conversation persistence.** Every question and answer is saved to a SQLite database ([conversation.py](app/conversation.py)) with the full context chunks, the model used, and a timestamp. Conversations are auto-titled from the first question, can be renamed, deleted, or exported as PDF or Markdown. The sidebar shows the full conversation history, and clicking any past conversation loads it instantly. This is not a demo feature — it is the difference between a tool you use once and a tool you keep open.
+**Stage 5 - Conversation persistence.** Every question and answer is saved to a SQLite database ([conversation.py](app/conversation.py)) with the full context chunks, the model used, and a timestamp. Conversations are auto-titled from the first question, can be renamed, deleted, or exported as PDF or Markdown. The sidebar shows the full conversation history, and clicking any past conversation loads it instantly. This is not a demo feature - it is the difference between a tool you use once and a tool you keep open.
 
 ---
 
 ## The Pipeline in Detail
 
 <details>
-<summary><strong>Hybrid Search — why not just embeddings?</strong></summary>
+<summary><strong>Hybrid Search - why not just embeddings?</strong></summary>
 
 The first version of this system used only FAISS vector search. It worked well for conceptual questions ("What are Mohammad's technical skills?") but failed catastrophically on exact lookups ("What is the company's phone number?", "When was the document signed?"). Embedding models compress text into a semantic space where "phone number" and "contact information" are close together, but the actual digits `+972-XXX-XXXX` are nowhere near anything. BM25 finds them instantly because it matches tokens, not meaning.
 
-The fix was to run both in parallel and merge with Reciprocal Rank Fusion. RRF assigns each result a score of `1 / (k + rank)` where `k` is a constant (60 by default), then sums across the two result lists. A chunk that ranks #1 in both gets the highest fused score; a chunk that ranks #1 in one but is absent from the other still appears, just lower. The constant `k` controls how much weight the top ranks carry relative to the tail — at 60, the difference between rank 1 and rank 2 is small, which makes the fusion forgiving of minor ranking disagreements.
+The fix was to run both in parallel and merge with Reciprocal Rank Fusion. RRF assigns each result a score of `1 / (k + rank)` where `k` is a constant (60 by default), then sums across the two result lists. A chunk that ranks #1 in both gets the highest fused score; a chunk that ranks #1 in one but is absent from the other still appears, just lower. The constant `k` controls how much weight the top ranks carry relative to the tail - at 60, the difference between rank 1 and rank 2 is small, which makes the fusion forgiving of minor ranking disagreements.
 
 This alone was a significant improvement. But the fused list still had a problem: the top 8 chunks by RRF score were not always the 8 most relevant. Two chunks from the same paragraph might both rank highly because they share vocabulary with the question, pushing out a genuinely different chunk that would have added new information. The Cross-Encoder re-ranker solves this by scoring each candidate independently against the question using a model specifically trained for relevance classification, not just similarity.
 
 </details>
 
 <details>
-<summary><strong>Cross-Encoder Re-ranking — the accuracy upgrade</strong></summary>
+<summary><strong>Cross-Encoder Re-ranking - the accuracy upgrade</strong></summary>
 
-The Cross-Encoder (`cross-encoder/ms-marco-MiniLM-L-6-v2`) is a 22M parameter model trained on the MS MARCO passage ranking dataset. Unlike the embedding model, which compresses text into a fixed vector independently of the query, the Cross-Encoder takes the question and the chunk as a single input pair and outputs a relevance score. This makes it dramatically more accurate for ranking, but too slow to run on every chunk in the database — which is why it only sees the top candidates after RRF fusion.
+The Cross-Encoder (`cross-encoder/ms-marco-MiniLM-L-6-v2`) is a 22M parameter model trained on the MS MARCO passage ranking dataset. Unlike the embedding model, which compresses text into a fixed vector independently of the query, the Cross-Encoder takes the question and the chunk as a single input pair and outputs a relevance score. This makes it dramatically more accurate for ranking, but too slow to run on every chunk in the database - which is why it only sees the top candidates after RRF fusion.
 
-The implementation in [vector_store.py](app/vector_store.py) pulls `3 * top_k` candidates from RRF, scores each one with the Cross-Encoder, and returns the top `top_k` by Cross-Encoder score. The model loads lazily on first use and stays in memory for subsequent queries. On a CPU-only machine, scoring 24 candidates takes under a second. The quality improvement is not subtle — it is the difference between "the answer is somewhere in these 8 chunks" and "the answer is in chunk 1 and chunk 3, and the other 6 are supporting context."
+The implementation in [vector_store.py](app/vector_store.py) pulls `3 * top_k` candidates from RRF, scores each one with the Cross-Encoder, and returns the top `top_k` by Cross-Encoder score. The model loads lazily on first use and stays in memory for subsequent queries. On a CPU-only machine, scoring 24 candidates takes under a second. The quality improvement is not subtle - it is the difference between "the answer is somewhere in these 8 chunks" and "the answer is in chunk 1 and chunk 3, and the other 6 are supporting context."
 
 </details>
 
 <details>
-<summary><strong>The frontend — why not Streamlit?</strong></summary>
+<summary><strong>The frontend - why not Streamlit?</strong></summary>
 
-The original frontend was a Streamlit app. It worked, but it had problems that compounded over time. Streamlit re-runs the entire script on every interaction, which made conversation persistence fragile — state management required `st.session_state` hacks that broke when the user refreshed the page. The chat interface felt like a demo, not a tool. Styling was limited to what Streamlit's theming allowed, which is not much.
+The original frontend was a Streamlit app. It worked, but it had problems that compounded over time. Streamlit re-runs the entire script on every interaction, which made conversation persistence fragile - state management required `st.session_state` hacks that broke when the user refreshed the page. The chat interface felt like a demo, not a tool. Styling was limited to what Streamlit's theming allowed, which is not much.
 
 The current frontend is a custom-built single-page application in vanilla HTML, CSS, and JavaScript. No React, no Vue, no build step. The HTML is in [index.html](ui/index.html), the styles in [style.css](ui/style.css), the logic in [script.js](ui/script.js). Nginx serves the static files and reverse-proxies API requests to the backend, so the browser talks to a single origin on port 8501.
 
@@ -106,7 +106,7 @@ The interface is dark-themed with a responsive sidebar that shows conversation h
 </details>
 
 <details>
-<summary><strong>Security — what is locked down</strong></summary>
+<summary><strong>Security - what is locked down</strong></summary>
 
 Privacy is an architectural property, but security is a configuration property. The system includes:
 
@@ -165,7 +165,7 @@ All settings live in [app/config.py](app/config.py) and can be overridden with e
 | CHUNK_SIZE        | 1000                       | Max characters per text chunk        |
 | CHUNK_OVERLAP     | 200                        | Overlap between consecutive chunks   |
 | TOP_K             | 8                          | Number of chunks retrieved per query |
-| API_KEY           | *(empty — auth disabled)*  | Set to enable API key authentication |
+| API_KEY           | *(empty - auth disabled)*  | Set to enable API key authentication |
 | MAX_FILE_SIZE_MB  | 50                         | Maximum upload file size in MB       |
 | RATE_LIMIT        | 30/minute                  | Rate limit for the /ask endpoint     |
 | LOG_LEVEL         | INFO                       | Logging verbosity                    |
