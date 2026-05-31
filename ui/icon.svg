@@ -1,9 +1,31 @@
-<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" fill="url(#paint0_linear)"/>
+<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="paint0_linear" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#60A5FA"/>
-      <stop offset="1" stop-color="#A78BFA"/>
+    <linearGradient id="nexusG1" x1="10%" y1="10%" x2="90%" y2="90%">
+      <stop offset="0%" stop-color="#38BDF8" /> <!-- Cyan -->
+      <stop offset="100%" stop-color="#6366F1" /> <!-- Indigo -->
     </linearGradient>
+    <linearGradient id="nexusG2" x1="90%" y1="10%" x2="10%" y2="90%">
+      <stop offset="0%" stop-color="#A855F7" /> <!-- Purple -->
+      <stop offset="100%" stop-color="#EC4899" /> <!-- Pink -->
+    </linearGradient>
+    <linearGradient id="nexusG3" x1="10%" y1="90%" x2="90%" y2="10%">
+      <stop offset="0%" stop-color="#EC4899" /> <!-- Pink -->
+      <stop offset="100%" stop-color="#38BDF8" /> <!-- Cyan -->
+    </linearGradient>
+    <filter id="glowBlur">
+      <feGaussianBlur stdDeviation="3" />
+    </filter>
   </defs>
+
+  <!-- Central glowing aura -->
+  <circle cx="24" cy="24" r="10" fill="url(#nexusG3)" opacity="0.6" filter="url(#glowBlur)"/>
+
+  <!-- Left abstract ribbon -->
+  <path d="M12 36 L12 16 C12 12 15 8 20 8 C25 8 26 12 26 16 L26 28 C26 30 28 32 30 32 L36 32" stroke="url(#nexusG1)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Right abstract ribbon (creates the N shape) -->
+  <path d="M36 12 L36 32 C36 36 33 40 28 40 C23 40 22 36 22 32 L22 20 C22 18 20 16 18 16 L12 16" stroke="url(#nexusG2)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Central bright Nexus node -->
+  <circle cx="24" cy="24" r="4" fill="#ffffff" />
 </svg>
