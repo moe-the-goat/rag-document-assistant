@@ -23,6 +23,7 @@ import faiss
 import numpy as np
 from rank_bm25 import BM25Okapi
 from langchain_ollama import OllamaEmbeddings
+from sentence_transformers import CrossEncoder
 
 from app.config import EMBEDDING_MODEL, OLLAMA_BASE_URL, VECTOR_DB_DIR
 
@@ -54,6 +55,13 @@ class VectorStore:
         self._vectors: np.ndarray | None = None  # keep vectors for rebuild
         self._bm25: BM25Okapi | None = None  # keyword search index
         self._load_if_exists()
+
+    @property
+    def re_ranker(self) -> CrossEncoder:
+        if not hasattr(self, "_re_ranker"):
+            # Load a lightweight, highly accurate cross-encoder model locally
+            self._re_ranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+        return self._re_ranker
 
     # -- file paths ----------------------------------------------------------
 
@@ -269,11 +277,26 @@ class VectorStore:
         # sort by combined RRF score (highest first)
         sorted_indices = sorted(rrf_scores.keys(), key=lambda i: rrf_scores[i], reverse=True)
 
+        # Stage 2: Re-ranking with Cross-Encoder
+        top_candidates = sorted_indices[:fetch_k]
+        if not top_candidates:
+            return []
+
+        # Prepare pairs of (query, chunk_text) for the cross-encoder
+        cross_inp = [[query, self.chunks[idx]] for idx in top_candidates]
+        cross_scores = self.re_ranker.predict(cross_inp)
+
+        # Pair indices with their cross-encoder scores
+        reranked = [(idx, score) for idx, score in zip(top_candidates, cross_scores)]
+        reranked.sort(key=lambda x: x[1], reverse=True)
+
         results = []
-        for idx in sorted_indices[:top_k]:
+        for idx, score in reranked[:top_k]:
             results.append({
                 "text": self.chunks[idx],
                 "doc_id": self.doc_ids[idx],
+                "chunk_idx": idx,
+                "score": float(score)
             })
         return results
 

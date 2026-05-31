@@ -236,15 +236,15 @@ def ask_question(request: Request, req: QuestionRequest):
     )
 
     # RAG pipeline
-    context, context_chunks = retrieve_context(
+    context, sources = retrieve_context(
         vector_store, question, doc_ids=req.doc_ids,
     )
 
     def event_stream():
-        # First yield the conversation_id and context_chunks so the UI can update immediately
+        # First yield the conversation_id and sources so the UI can update immediately
         init_data = {
             "conversation_id": conversation_id,
-            "context_chunks": context_chunks,
+            "sources": sources,
         }
         yield f"data: {json.dumps(init_data)}\n\n"
 
@@ -258,7 +258,7 @@ def ask_question(request: Request, req: QuestionRequest):
             conversation_id=conversation_id,
             role="assistant",
             content=full_answer,
-            context_chunks=context_chunks,
+            context_chunks=sources,
             model_used=req.model,
         )
 

@@ -718,3 +718,61 @@ body {
     width: 100%;
     outline: none;
 }
+
+/* Citations & Tooltips */
+.citation-mark {
+    color: var(--accent-blue);
+    font-size: 0.75rem;
+    cursor: pointer;
+    margin-left: 2px;
+    padding: 0 2px;
+    border-radius: 4px;
+    background-color: rgba(168, 199, 250, 0.1);
+    transition: background-color 0.2s;
+    user-select: none;
+}
+
+.citation-mark:hover {
+    background-color: rgba(168, 199, 250, 0.3);
+}
+
+.citation-tooltip {
+    position: fixed;
+    background-color: var(--bg-surface);
+    color: var(--text-main);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+    padding: 12px;
+    width: 300px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    z-index: 3000;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+}
+
+.citation-tooltip.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.citation-tooltip .source-filename {
+    font-weight: 600;
+    color: var(--accent-blue);
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 4px;
+    display: block;
+}
+
+.citation-tooltip .source-text {
+    color: var(--text-muted);
+    max-height: 150px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
+}

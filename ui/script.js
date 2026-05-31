@@ -29,6 +29,8 @@ const exportDropdown = document.getElementById('export-dropdown');
 const exportMdBtn = document.getElementById('export-md-btn');
 const exportPdfBtn = document.getElementById('export-pdf-btn');
 
+let currentSources = []; // Store sources for the current active conversation
+
 // Initialize Marked with highlight.js
 marked.setOptions({
     highlight: function(code, lang) {
@@ -487,6 +489,12 @@ function renderStreamingContent(rawText, container) {
     }
 
     html += marked.parse(mainText);
+
+    // Convert [^1] or [1] into interactive citation marks
+    html = html.replace(/\[\^?(\d+)\]/g, (match, num) => {
+        return `<sup class="citation-mark" data-source="${num}">${num}</sup>`;
+    });
+
     container.innerHTML = html;
 }
 
@@ -613,7 +621,12 @@ async function sendMessage() {
                             currentConversationId = data.conversation_id;
                             loadConversations();
                         }
-                        if (data.context_chunks) {
+                        if (data.sources) {
+                            currentSources = data.sources;
+                            contextChunks = data.sources.map(s => `[Source ${s.source_id}: ${s.filename}]\n${s.text}`);
+                        }
+                        if (data.context_chunks && !data.sources) {
+                            // Fallback for older messages in history
                             contextChunks = data.context_chunks;
                         }
                         if (data.chunk) {
@@ -638,5 +651,39 @@ async function sendMessage() {
 }
 
 // Init
-loadConversations();
 loadDocuments();
+loadConversations();
+
+// Citation Tooltip Logic
+const citationTooltip = document.getElementById('citation-tooltip');
+
+document.addEventListener('mouseover', (e) => {
+    if (e.target.classList.contains('citation-mark')) {
+        const sourceId = parseInt(e.target.getAttribute('data-source'));
+        const source = currentSources.find(s => s.source_id === sourceId);
+
+        if (source && citationTooltip) {
+            citationTooltip.innerHTML = `
+                <span class="source-filename">${source.filename}</span>
+                <div class="source-text">${source.text}</div>
+            `;
+
+            const rect = e.target.getBoundingClientRect();
+            citationTooltip.style.left = `${rect.left}px`;
+            citationTooltip.style.top = `${rect.bottom + 8}px`;
+            citationTooltip.classList.add('show');
+
+            // Basic bounds checking
+            const ttRect = citationTooltip.getBoundingClientRect();
+            if (ttRect.right > window.innerWidth) {
+                citationTooltip.style.left = `${window.innerWidth - ttRect.width - 10}px`;
+            }
+        }
+    }
+});
+
+document.addEventListener('mouseout', (e) => {
+    if (e.target.classList.contains('citation-mark') && citationTooltip) {
+        citationTooltip.classList.remove('show');
+    }
+});

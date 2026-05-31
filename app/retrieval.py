@@ -5,21 +5,33 @@
 
 from app.vector_store import VectorStore
 from app.config import TOP_K
-
+from app import document_registry as registry
 
 def retrieve_context(
     vector_store: VectorStore,
     query: str,
     top_k: int = TOP_K,
     doc_ids: list[str] | None = None,
-) -> tuple[str, list[str]]:
-    # grab the most relevant chunks and join them with a separator
-    # returns (context_string, list_of_chunk_texts) 
-    # optionally filter to specific documents via doc_ids
+) -> tuple[str, list[dict]]:
     results = vector_store.search(query, top_k=top_k, doc_ids=doc_ids)
     if not results:
         return "", []
 
-    chunk_texts = [r["text"] for r in results]
-    context = "\n\n---\n\n".join(chunk_texts)
-    return context, chunk_texts
+    sources = []
+    context_parts = []
+
+    for i, r in enumerate(results):
+        doc_info = registry.get_document(r["doc_id"])
+        filename = doc_info["original_name"] if doc_info else "Unknown Document"
+        source_id = i + 1
+
+        # Add metadata for the UI
+        r["filename"] = filename
+        r["source_id"] = source_id
+        sources.append(r)
+
+        # Format the chunk for the LLM prompt with explicit citation markers
+        context_parts.append(f"[Source {source_id}: {filename}]\n{r['text']}")
+
+    context = "\n\n---\n\n".join(context_parts)
+    return context, sources
