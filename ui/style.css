@@ -217,19 +217,43 @@ body {
 }
 
 .chat-header {
-    padding: 16px 24px;
     display: flex;
     align-items: center;
     gap: 16px;
+    padding: 16px 24px;
+    background-color: transparent;
 }
 
-.header-title h2 {
-    font-size: 1.2rem;
-    font-weight: 500;
+.brand-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
-.subtitle {
+
+.nexus-icon {
+    height: 28px;
+    width: auto;
+    flex-shrink: 0;
+}
+
+.text-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.brand-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+    color: var(--text-main);
+}
+
+.conversation-status {
     font-size: 0.85rem;
-    color: var(--text-subtle);
+    font-weight: 300;
+    margin: 0;
+    color: var(--text-muted);
 }
 
 .messages-container {

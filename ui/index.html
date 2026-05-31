@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
 </head>
 <body>
     <div class="app-container">
@@ -49,9 +50,12 @@
                 <button id="open-sidebar" class="btn icon-btn">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
                 </button>
-                <div class="header-title">
-                    <h2>Nexus AI</h2>
-                    <span id="current-chat-title" class="subtitle">New Conversation</span>
+                <div class="brand-container">
+                    <img src="icon.svg" alt="Nexus AI Logo" class="nexus-icon" />
+                    <div class="text-group">
+                        <h1 class="brand-name">Nexus AI</h1>
+                        <p class="conversation-status" id="current-chat-title">New Conversation</p>
+                    </div>
                 </div>
             </header>
 
