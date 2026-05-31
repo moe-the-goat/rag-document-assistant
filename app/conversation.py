@@ -113,8 +113,8 @@ def rename_conversation(conversation_id: str, title: str) -> bool:
     """Rename a conversation. Returns True if it existed."""
     conn = _get_connection()
     cursor = conn.execute(
-        "UPDATE conversations SET title = ?, updated_at = ? WHERE conversation_id = ?",
-        (title, _now(), conversation_id),
+        "UPDATE conversations SET title = ? WHERE conversation_id = ?",
+        (title, conversation_id),
     )
     conn.commit()
     conn.close()

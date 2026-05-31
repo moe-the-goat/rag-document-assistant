@@ -52,9 +52,9 @@ if (modelSelectBtn) {
         }
     });
 
-    document.querySelectorAll('.dropdown-item').forEach(item => {
+    modelDropdown.querySelectorAll('.dropdown-item').forEach(item => {
         item.addEventListener('click', () => {
-            document.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('selected'));
+            modelDropdown.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('selected'));
             item.classList.add('selected');
             currentModel = item.getAttribute('data-value');
             selectedModelText.textContent = item.querySelector('.dropdown-title').textContent;
@@ -74,16 +74,16 @@ openSidebarBtn.addEventListener('click', () => {
 });
 
 // Settings Modal
-settingsBtn.addEventListener('click', () => settingsModal.style.display = 'flex');
-closeSettingsBtn.addEventListener('click', () => settingsModal.style.display = 'none');
+settingsBtn.addEventListener('click', () => settingsModal.classList.add('show'));
+closeSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('show'));
 settingsModal.addEventListener('click', (e) => {
-    if (e.target === settingsModal) settingsModal.style.display = 'none';
+    if (e.target === settingsModal) settingsModal.classList.remove('show');
 });
 
 clearAllChatsBtn.addEventListener('click', async () => {
     if (confirm('Are you sure you want to delete all conversations? This cannot be undone.')) {
         await fetch('/conversations', { method: 'DELETE' });
-        settingsModal.style.display = 'none';
+        settingsModal.classList.remove('show');
         newChatBtn.click();
     }
 });
@@ -125,22 +125,73 @@ exportMdBtn.addEventListener('click', async () => {
     }
 });
 
-exportPdfBtn.addEventListener('click', () => {
+exportPdfBtn.addEventListener('click', async () => {
     exportDropdown.classList.remove('show');
-    if (!currentConversationId || document.querySelector('.chat-empty')) return showToast('No conversation to export', 'error');
+    if (!currentConversationId) return showToast('No conversation to export', 'error');
 
-    const element = document.getElementById('messages-container');
-    const opt = {
-        margin:       10,
-        filename:     `${currentChatTitle.textContent.replace(/[^a-z0-9]/gi, '_')}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true, logging: false },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    showToast('Generating PDF...', 'info');
-    html2pdf().set(opt).from(element).save().then(() => {
-        showToast('PDF Exported successfully', 'success');
-    });
+    try {
+        const res = await fetch(`/conversations/${currentConversationId}`);
+        const data = await res.json();
+        if (!data.messages || data.messages.length === 0) return showToast('No messages to export', 'error');
+
+        // Build a clean, light-themed HTML document for PDF
+        const pdfDiv = document.createElement('div');
+        pdfDiv.style.cssText = 'font-family: Arial, sans-serif; color: #1a1a1a; padding: 20px; background: #fff;';
+
+        const title = document.createElement('h1');
+        title.textContent = data.title;
+        title.style.cssText = 'font-size: 22px; border-bottom: 2px solid #4b90ff; padding-bottom: 10px; margin-bottom: 24px; color: #1a1a1a;';
+        pdfDiv.appendChild(title);
+
+        data.messages.forEach(m => {
+            const msgDiv = document.createElement('div');
+            msgDiv.style.cssText = 'margin-bottom: 20px; page-break-inside: avoid;';
+
+            const label = document.createElement('div');
+            label.textContent = m.role === 'user' ? '👤 You' : '🤖 Nexus AI';
+            label.style.cssText = 'font-weight: bold; font-size: 13px; margin-bottom: 6px; color: ' + (m.role === 'user' ? '#333' : '#4b90ff') + ';';
+            msgDiv.appendChild(label);
+
+            const content = document.createElement('div');
+            // Strip think tags for clean output
+            let cleanContent = m.content;
+            const ts = cleanContent.indexOf('<think>');
+            const te = cleanContent.indexOf('</think>');
+            if (ts !== -1 && te !== -1) cleanContent = cleanContent.substring(0, ts) + cleanContent.substring(te + 8);
+            else if (ts !== -1) cleanContent = cleanContent.substring(0, ts);
+
+            content.innerHTML = marked.parse(cleanContent.trim());
+            content.style.cssText = 'font-size: 14px; line-height: 1.6; color: #333; padding: 12px 16px; border-radius: 8px; background: ' + (m.role === 'user' ? '#f0f0f0' : '#f8f9ff') + ';';
+            // Style code blocks inside
+            content.querySelectorAll('pre').forEach(pre => {
+                pre.style.cssText = 'background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px;';
+            });
+            msgDiv.appendChild(content);
+            pdfDiv.appendChild(msgDiv);
+        });
+
+        const footer = document.createElement('div');
+        footer.textContent = 'Exported from Nexus AI — ' + new Date().toLocaleDateString();
+        footer.style.cssText = 'text-align: center; font-size: 11px; color: #999; margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px;';
+        pdfDiv.appendChild(footer);
+
+        document.body.appendChild(pdfDiv);
+
+        showToast('Generating PDF...', 'info');
+        const opt = {
+            margin: 10,
+            filename: `${data.title.replace(/[^a-z0-9]/gi, '_')}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        await html2pdf().set(opt).from(pdfDiv).save();
+        document.body.removeChild(pdfDiv);
+        showToast('PDF exported successfully', 'success');
+    } catch (e) {
+        console.error('PDF export failed', e);
+        showToast('Failed to export PDF', 'error');
+    }
 });
 
 
