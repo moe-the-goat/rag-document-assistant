@@ -363,16 +363,24 @@ async function sendMessage() {
         const decoder = new TextDecoder();
         let fullAnswer = "";
         let contextChunks = [];
+        let buffer = "";
 
         while (true) {
             const { done, value } = await reader.read();
-            if (done) break;
+            if (done) {
+                if (fullAnswer === "") {
+                    bubble.innerHTML = marked.parse(`**Error:** Received empty response from server.`);
+                }
+                break;
+            }
 
-            const chunkStr = decoder.decode(value, { stream: true });
-            const events = chunkStr.split('\n\n');
+            buffer += decoder.decode(value, { stream: true });
 
-            for (const event of events) {
-                if (!event.trim()) continue;
+            let boundary = buffer.indexOf('\n\n');
+            while (boundary !== -1) {
+                const event = buffer.substring(0, boundary);
+                buffer = buffer.substring(boundary + 2);
+
                 if (event.startsWith('data: ')) {
                     const dataStr = event.substring(6);
                     if (dataStr === '[DONE]') break;
@@ -392,9 +400,10 @@ async function sendMessage() {
                             messagesContainer.scrollTop = messagesContainer.scrollHeight;
                         }
                     } catch (e) {
-                        console.error("Parse error", e);
+                        console.error("Parse error:", e, "Data string:", dataStr);
                     }
                 }
+                boundary = buffer.indexOf('\n\n');
             }
         }
 
