@@ -76,7 +76,8 @@ body {
 }
 
 .sidebar-footer {
-    padding: 20px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--bg-surface);
 }
 
 /* Buttons */
@@ -91,12 +92,12 @@ body {
     align-items: center;
     gap: 8px;
     transition: background 0.2s, opacity 0.2s;
-    width: 100%;
 }
 
 .primary-btn {
     background-color: var(--bg-surface);
     color: var(--text-main);
+    width: 100%;
 }
 .primary-btn:hover { background-color: var(--accent-hover); }
 
@@ -104,6 +105,7 @@ body {
     background-color: transparent;
     color: var(--text-main);
     border: 1px solid var(--bg-surface);
+    width: auto;
 }
 .secondary-btn:hover { background-color: var(--bg-surface); }
 
@@ -623,6 +625,20 @@ body {
 
 .danger-btn:hover {
     background-color: rgba(255, 85, 70, 0.2);
+}
+
+.danger-btn {
+    width: auto;
+}
+
+/* Export Dropdown */
+.export-dropdown-container {
+    position: relative;
+}
+
+.export-dropdown-container .custom-dropdown {
+    top: calc(100% + 8px);
+    bottom: auto;
 }
 
 /* Copy Buttons */
