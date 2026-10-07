@@ -127,8 +127,8 @@ The system is fully containerised. You do not need to install Python, Ollama, or
 ### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
-cd "AI Document Assistant using Retrieval-Augmented"
+git clone https://github.com/moe-the-goat/rag-document-assistant.git
+cd rag-document-assistant
 ```
 
 ### 2. Start the stack
